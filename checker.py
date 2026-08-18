@@ -19,6 +19,12 @@ try:
 except Exception:
     pass
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 SOURCES = [
     "https://sub.aska.lol/Ux7lmK0xkIl2",
     "https://connliberty.com/connection/subs/dcf2b960-d490-40dd-a18b-1718550f939e",
@@ -36,6 +42,42 @@ TIMEOUT = 3.0
 
 SCHEMES = ("vless://", "vmess://", "trojan://", "hysteria2://", "hy2://")
 GAME_GEO = ["NL", "DE", "PL", "CZ", "RO", "FI", "SE", "SG", "JP", "US"]
+
+FULL_NAMES = {
+    "RU": "Россия", "NL": "Нидерланды", "DE": "Германия", "FR": "Франция",
+    "PL": "Польша", "CZ": "Чехия", "RO": "Румыния", "FI": "Финляндия",
+    "SE": "Швеция", "SG": "Сингапур", "JP": "Япония", "US": "США",
+    "GB": "Великобритания", "TR": "Турция", "KR": "Южная Корея",
+    "HK": "Гонконг", "TW": "Тайвань", "CA": "Канада", "CH": "Швейцария",
+    "IT": "Италия", "ES": "Испания", "EE": "Эстония", "LT": "Литва",
+    "LV": "Латвия", "UA": "Украина", "MD": "Молдова", "BG": "Болгария",
+    "EU": "Европа", "AT": "Австрия", "BE": "Бельгия", "DK": "Дания",
+    "NO": "Норвегия", "IE": "Ирландия", "PT": "Португалия", "GR": "Греция",
+    "HU": "Венгрия", "SK": "Словакия", "HR": "Хорватия", "RS": "Сербия",
+    "GE": "Грузия", "AM": "Армения", "AZ": "Азербайджан", "KZ": "Казахстан",
+    "UZ": "Узбекистан", "IN": "Индия", "ID": "Индонезия", "MY": "Малайзия",
+    "TH": "Таиланд", "VN": "Вьетнам", "PH": "Филиппины", "AE": "ОАЭ",
+    "IL": "Израиль", "BR": "Бразилия", "MX": "Мексика", "AR": "Аргентина",
+    "CL": "Чили", "ZA": "ЮАР", "AU": "Австралия", "NZ": "Новая Зеландия",
+    "SA": "Саудовская Аравия", "EG": "Египет", "CY": "Кипр", "IS": "Исландия",
+    "LU": "Люксембург", "MT": "Мальта", "MO": "Макао", "IR": "Иран",
+}
+
+
+def country_to_flag(code):
+    if not code or len(code) != 2:
+        return ""
+    return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
+
+
+def country_display(country):
+    if not country:
+        return ""
+    flag = country_to_flag(country)
+    full = FULL_NAMES.get(country)
+    if full:
+        return flag + " " + full
+    return flag + " " + country
 
 RU_HINTS = [
     r"\bru\b",
@@ -393,7 +435,10 @@ def main():
 
     used_names = {}
     for node in final:
-        base = (node["country"] or node["name"] or "unknown").strip() or "unknown"
+        if node["country"]:
+            base = country_display(node["country"])
+        else:
+            base = "Неизвестно"
         used_names[base] = used_names.get(base, 0) + 1
         num = used_names[base]
         new_name = base if num == 1 else base + "-" + str(num)
@@ -430,7 +475,7 @@ def main():
     clash_name = None
     clash_line = ""
     if game_pick:
-        country = game_pick["country"] or "XX"
+        country = country_display(game_pick["country"])
         ms = int(round(game_pick["median_ms"] or 0.0))
         clash_name = "Clash Royale | " + country + " | " + str(ms) + "ms"
         clash_line = rename_node(game_pick, clash_name)
@@ -439,7 +484,7 @@ def main():
     speed_name = None
     speed_line = ""
     if speed_pick:
-        country = speed_pick["country"] or "XX"
+        country = country_display(speed_pick["country"])
         speed_name = "Speed | " + country + " | best"
         speed_line = rename_node(speed_pick, speed_name)
     write_file("speed.txt", speed_line)
