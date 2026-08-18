@@ -238,8 +238,8 @@ def rename_node(node, new_name):
     encoded = quote(new_name, safe="")
     if node["scheme"] == "vmess":
         data = dict(node["data"])
-        data["ps"] = encoded
-        payload = base64.urlsafe_b64encode(json.dumps(data).encode("utf-8")).decode("ascii")
+        data["ps"] = new_name
+        payload = base64.urlsafe_b64encode(json.dumps(data, ensure_ascii=False).encode("utf-8")).decode("ascii")
         return "vmess://" + payload
     head = node["raw"].split("#")[0]
     return head + "#" + encoded
