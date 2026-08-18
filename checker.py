@@ -7,6 +7,7 @@ import socket
 import statistics
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -241,15 +242,26 @@ def resolve_host(host):
 
 
 def lookup_country(ip, token):
-    if not token or not ip:
+    if not ip:
         return None
+    if token:
+        try:
+            headers = {"Accept": "application/json"}
+            if token:
+                headers["Authorization"] = "Bearer " + token
+            resp = requests.get("https://ipinfo.io/" + ip + "/json", headers=headers, timeout=10)
+            if resp.status_code == 200:
+                cc = resp.json().get("country")
+                if cc:
+                    return cc
+        except Exception:
+            pass
     try:
-        headers = {"Accept": "application/json"}
-        if token:
-            headers["Authorization"] = "Bearer " + token
-        resp = requests.get("https://ipinfo.io/" + ip + "/json", headers=headers, timeout=10)
+        resp = requests.get("http://ip-api.com/json/" + ip + "?fields=countryCode", timeout=8)
         if resp.status_code == 200:
-            return resp.json().get("country")
+            data = resp.json()
+            if data.get("status") == "success":
+                return data.get("countryCode")
     except Exception:
         pass
     return None
@@ -309,10 +321,20 @@ def main():
             count += 1
 
     print("INFO: candidates:", len(candidates))
+    print("INFO: probing", len(candidates), "nodes in parallel, wait...")
+
+    def probe_node(node):
+        ok, samples = probe(node["host"], node["port"])
+        node["_ok"] = ok
+        node["_samples"] = samples
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        list(pool.map(probe_node, candidates))
 
     tested = []
     for node in candidates:
-        ok, samples = probe(node["host"], node["port"])
+        ok = node["_ok"]
+        samples = node["_samples"]
         rate = ok / float(ATTEMPTS)
         if rate < MIN_SUCCESS:
             continue
@@ -369,7 +391,16 @@ def main():
             key=lambda n: (-n["success_rate"], -n["speed_score"], n["median_ms"] or 999.0, n["jitter_ms"]),
         )[0]
 
-    top_text = "\n".join(n["raw"] for n in final)
+    used_names = {}
+    for node in final:
+        base = (node["country"] or node["name"] or "unknown").strip() or "unknown"
+        used_names[base] = used_names.get(base, 0) + 1
+        num = used_names[base]
+        new_name = base if num == 1 else base + "-" + str(num)
+        node["display_name"] = new_name
+        node["final_raw"] = rename_node(node, new_name)
+
+    top_text = "\n".join(n["final_raw"] for n in final)
     if not top_text.endswith("\n"):
         top_text += "\n"
     write_file("top30.txt", top_text)
@@ -379,7 +410,7 @@ def main():
     report = []
     for n in final:
         report.append({
-            "display_name": n["name"] or (n["country"] or "unknown"),
+            "display_name": n["display_name"],
             "source": n["source"],
             "scheme": n["scheme"],
             "host": n["host"],
