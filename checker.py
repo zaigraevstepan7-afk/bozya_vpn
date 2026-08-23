@@ -400,6 +400,8 @@ def awg_conf_to_uri(interface, peer, display_name):
     # Prefer IPv4 local address — Happ WireGuard examples use a single address.
     addr_v4 = next((item for item in addrs if ":" not in item.split("/", 1)[0]), addrs[0])
     reserved = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
+    # Keep Happ URIs short: oversized links (esp. I1) are dropped from subscriptions.
+    # Amnezia I1/Jc for PattNG go into output/pattng-bs.json (Finalmask), not here.
     query = [
         ("publickey", public_key),
         ("address", addr_v4),
@@ -408,36 +410,13 @@ def awg_conf_to_uri(interface, peer, display_name):
         ("allowedips", peer.get("AllowedIPs") or "0.0.0.0/0,::/0"),
         ("reserved", reserved),
         ("keepalive", peer.get("PersistentKeepalive") or "25"),
-        # AmneziaWG extras: ignored by plain Happ WireGuard, kept for AWG-aware forks.
-        ("jc", interface.get("Jc")),
-        ("jmin", interface.get("Jmin")),
-        ("jmax", interface.get("Jmax")),
-        ("s1", interface.get("S1")),
-        ("s2", interface.get("S2")),
-        ("s3", interface.get("S3")),
-        ("s4", interface.get("S4")),
-        ("h1", interface.get("H1")),
-        ("h2", interface.get("H2")),
-        ("h3", interface.get("H3")),
-        ("h4", interface.get("H4")),
-        ("i1", interface.get("I1")),
-        ("i2", interface.get("I2")),
-        ("i3", interface.get("I3")),
-        ("i4", interface.get("I4")),
-        ("i5", interface.get("I5")),
         ("presharedkey", peer.get("PresharedKey")),
     ]
     query_str = _encode_query(query)
     userinfo = quote(private_key, safe="-_")
-    # Happ title limit is 30 chars; put the long Russian label in serverDescription.
-    short = display_name
-    if "Германия" in display_name or display_name.endswith("DE"):
-        short = "BS DE"
-    elif "Финляндия" in display_name or display_name.endswith("FI"):
-        short = "BS FI"
-    elif "Польша" in display_name or display_name.endswith("PL"):
-        short = "BS PL"
-    desc = base64.b64encode(display_name.encode("utf-8")).decode("ascii")
+    # Title: "Белый список | 🇩🇪 Германия" (fits Happ's ~30 char limit).
+    short = (display_name or "Белый список")[:30]
+    desc = base64.b64encode((display_name or short).encode("utf-8")).decode("ascii")
     fragment = quote(short, safe="") + "?serverDescription=" + desc
     return [
         "wireguard://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
@@ -501,6 +480,300 @@ def awg_conf_to_clash(interface, peer, display_name):
     return proxy
 
 
+def _i1_to_hex(i1):
+    text = (i1 or "").strip()
+    match = re.search(r"<b\s+0x([0-9a-fA-F]+)>", text)
+    if match:
+        return match.group(1).lower()
+    if re.fullmatch(r"[0-9a-fA-F]+", text) and len(text) % 2 == 0:
+        return text.lower()
+    return None
+
+
+def awg_to_finalmask(interface):
+    """Map AmneziaWG I1/Jc junk into Xray Finalmask UDP noise for PattNG/Xray.
+
+    Spec: https://xtls.github.io/en/config/transports/finalmask.html
+    PattNG applies streamSettings.finalmask on WireGuard outbounds (CUSTOM JSON
+    is passed to the core as-is).
+    """
+    noises = []
+    i1_hex = _i1_to_hex(interface.get("I1"))
+    if i1_hex:
+        noises.append({
+            "type": "hex",
+            "packet": i1_hex,
+            "delay": "0",
+        })
+    try:
+        jc = int(interface.get("Jc") or 0)
+    except Exception:
+        jc = 0
+    jmin = str(interface.get("Jmin") or "40").strip() or "40"
+    jmax = str(interface.get("Jmax") or "70").strip() or "70"
+    size = jmin + "-" + jmax
+    for _ in range(max(0, min(jc, 10))):
+        noises.append({
+            "rand": size,
+            "delay": "0-5",
+        })
+    if not noises:
+        return None
+    return {
+        "udp": [
+            {
+                "type": "noise",
+                "settings": {
+                    "reset": "25-60",
+                    "noise": noises,
+                },
+            }
+        ]
+    }
+
+
+def _pattng_shell(remarks, outbound):
+    return {
+        "remarks": remarks,
+        "log": {"loglevel": "warning"},
+        "inbounds": [{
+            "tag": "socks",
+            "port": 10808,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "settings": {"udp": True},
+        }],
+        "outbounds": [
+            outbound,
+            {"tag": "direct", "protocol": "freedom"},
+        ],
+        "routing": {
+            "domainStrategy": "AsIs",
+            "rules": [],
+        },
+    }
+
+
+def awg_conf_to_pattng_json(interface, peer, display_name):
+    """Full Xray custom config that stock PattNG imports and runs as-is."""
+    private_key = interface.get("PrivateKey") or ""
+    public_key = peer.get("PublicKey") or ""
+    address = interface.get("Address") or ""
+    endpoint = peer.get("Endpoint") or ""
+    host, port = split_endpoint(endpoint)
+    addrs = _cidr_addresses(address)
+    if not private_key or not public_key or not host or not port or not addrs:
+        return None
+    reserved_raw = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
+    reserved = []
+    for part in reserved_raw.replace("[", "").replace("]", "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            reserved.append(int(part))
+    if len(reserved) != 3:
+        reserved = [0, 0, 0]
+    outbound = {
+        "tag": "proxy",
+        "protocol": "wireguard",
+        "settings": {
+            "secretKey": private_key,
+            "address": addrs,
+            "peers": [{
+                "endpoint": host + ":" + str(port),
+                "publicKey": public_key,
+            }],
+            "mtu": int(interface.get("MTU") or 1280),
+            "reserved": reserved,
+            "domainStrategy": "ForceIP",
+        },
+    }
+    finalmask = awg_to_finalmask(interface)
+    if finalmask:
+        outbound["streamSettings"] = {"finalmask": finalmask}
+    return _pattng_shell(display_name or "Белый список", outbound)
+
+
+def share_uri_to_pattng_json(uri, remarks=None):
+    """Best-effort share-link → PattNG CUSTOM JSON (regular nodes in full sub)."""
+    node = parse_node(uri)
+    if not node:
+        return None
+    title = remarks or node.get("name") or (node.get("host") or "node")
+    scheme = node["scheme"]
+    try:
+        parsed = urlparse(uri)
+        query = {}
+        if parsed.query:
+            for part in parsed.query.split("&"):
+                if "=" not in part:
+                    continue
+                k, v = part.split("=", 1)
+                query[unquote(k)] = unquote(v)
+        host = parsed.hostname or node.get("host")
+        port = parsed.port or node.get("port") or 443
+        if not host:
+            return None
+        stream = {}
+        network = (query.get("type") or query.get("network") or "tcp").lower()
+        if network in ("ws", "websocket"):
+            stream["network"] = "ws"
+            stream["wsSettings"] = {
+                "path": query.get("path") or "/",
+                "headers": {"Host": query.get("host") or query.get("sni") or host},
+            }
+        elif network in ("grpc", "gun"):
+            stream["network"] = "grpc"
+            stream["grpcSettings"] = {"serviceName": query.get("serviceName") or query.get("path") or ""}
+        elif network in ("httpupgrade",):
+            stream["network"] = "httpupgrade"
+            stream["httpupgradeSettings"] = {
+                "path": query.get("path") or "/",
+                "host": query.get("host") or "",
+            }
+        elif network in ("xhttp", "splithttp"):
+            stream["network"] = "xhttp"
+            stream["xhttpSettings"] = {
+                "path": query.get("path") or "/",
+                "host": query.get("host") or "",
+                "mode": query.get("mode") or "",
+            }
+        else:
+            stream["network"] = "tcp"
+
+        security = (query.get("security") or query.get("tls") or "none").lower()
+        if security in ("tls", "reality"):
+            stream["security"] = security
+            tls = {
+                "serverName": query.get("sni") or query.get("host") or host,
+                "fingerprint": query.get("fp") or "",
+                "allowInsecure": query.get("allowInsecure") in ("1", "true", "TRUE"),
+            }
+            alpn = query.get("alpn")
+            if alpn:
+                tls["alpn"] = [x for x in alpn.split(",") if x]
+            if security == "reality":
+                tls["publicKey"] = query.get("pbk") or ""
+                tls["shortId"] = query.get("sid") or ""
+                tls["spiderX"] = query.get("spx") or ""
+            key = "realitySettings" if security == "reality" else "tlsSettings"
+            stream[key] = tls
+
+        if scheme == "vless":
+            uuid = unquote(parsed.username or "")
+            if not uuid:
+                return None
+            user = {"id": uuid, "encryption": query.get("encryption") or "none"}
+            if query.get("flow"):
+                user["flow"] = query.get("flow")
+            outbound = {
+                "tag": "proxy",
+                "protocol": "vless",
+                "settings": {
+                    "vnext": [{
+                        "address": host,
+                        "port": int(port),
+                        "users": [user],
+                    }]
+                },
+                "streamSettings": stream,
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "trojan":
+            password = unquote(parsed.username or "")
+            if not password:
+                return None
+            if "security" not in stream:
+                stream["security"] = "tls"
+                stream["tlsSettings"] = {
+                    "serverName": query.get("sni") or host,
+                    "allowInsecure": query.get("allowInsecure") in ("1", "true", "TRUE"),
+                }
+            outbound = {
+                "tag": "proxy",
+                "protocol": "trojan",
+                "settings": {
+                    "servers": [{
+                        "address": host,
+                        "port": int(port),
+                        "password": password,
+                    }]
+                },
+                "streamSettings": stream,
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "hysteria2":
+            password = unquote(parsed.username or "")
+            if not password:
+                return None
+            hy = {
+                "password": password,
+            }
+            if query.get("obfs"):
+                hy["obfs"] = query.get("obfs")
+            if query.get("obfs-password") or query.get("obfsPassword"):
+                hy["obfsPassword"] = query.get("obfs-password") or query.get("obfsPassword")
+            outbound = {
+                "tag": "proxy",
+                "protocol": "hysteria2",
+                "settings": {
+                    "servers": [{
+                        "address": host,
+                        "port": int(port),
+                        **hy,
+                    }]
+                },
+                "streamSettings": {
+                    "network": "hysteria",
+                    "security": "tls",
+                    "tlsSettings": {
+                        "serverName": query.get("sni") or host,
+                        "allowInsecure": query.get("insecure") in ("1", "true", "TRUE"),
+                    },
+                },
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "vmess" and node.get("data"):
+            data = node["data"]
+            net = (data.get("net") or "tcp").lower()
+            scy = data.get("scy") or "auto"
+            stream_v = {"network": "ws" if net in ("ws", "websocket") else net}
+            if stream_v["network"] == "ws":
+                stream_v["wsSettings"] = {
+                    "path": data.get("path") or "/",
+                    "headers": {"Host": data.get("host") or data.get("sni") or host},
+                }
+            tls_on = (data.get("tls") or "").lower() in ("tls", "reality")
+            if tls_on:
+                stream_v["security"] = "tls"
+                stream_v["tlsSettings"] = {
+                    "serverName": data.get("sni") or data.get("host") or host,
+                    "allowInsecure": False,
+                }
+            outbound = {
+                "tag": "proxy",
+                "protocol": "vmess",
+                "settings": {
+                    "vnext": [{
+                        "address": data.get("add") or host,
+                        "port": int(data.get("port") or port),
+                        "users": [{
+                            "id": data.get("id") or "",
+                            "alterId": int(data.get("aid") or 0),
+                            "security": scy,
+                        }],
+                    }]
+                },
+                "streamSettings": stream_v,
+            }
+            return _pattng_shell(title, outbound)
+    except Exception:
+        return None
+    return None
+
+
 def load_pinned_awg():
     pinned = []
     errors = []
@@ -516,7 +789,8 @@ def load_pinned_awg():
             display_name = "Белый список | " + (country_display(country) or country)
             uris = awg_conf_to_uri(interface, peer, display_name)
             clash = awg_conf_to_clash(interface, peer, display_name)
-            if not uris or not clash:
+            pattng = awg_conf_to_pattng_json(interface, peer, display_name)
+            if not uris or not clash or not pattng:
                 errors.append("pinned config incomplete: " + filename)
                 continue
             dest = os.path.join(OUT_DIR, filename)
@@ -530,6 +804,7 @@ def load_pinned_awg():
                 "port": int(port) if port and str(port).isdigit() else port,
                 "uris": uris,
                 "clash": clash,
+                "pattng": pattng,
             })
             print("INFO: pinned", filename, "->", display_name)
         except Exception as exc:
@@ -891,6 +1166,9 @@ def main():
     write_file("top30.b64.txt", b64_text)
     # Tiny subscription with only BS/AWG pins — use if the mixed list drops them.
     write_file("bs.txt", "\n".join(pinned_uris))
+    write_file("happ-bs.txt", "\n".join(pinned_uris))
+    write_file("bs.b64.txt", base64.b64encode(("\n".join(pinned_uris) + "\n").encode("utf-8")).decode("ascii"))
+    write_file("happ-bs.b64.txt", base64.b64encode(("\n".join(pinned_uris) + "\n").encode("utf-8")).decode("ascii"))
     clash_doc = {
         "proxies": [item["clash"] for item in pinned],
         "proxy-groups": [{
@@ -901,6 +1179,33 @@ def main():
     }
     with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(clash_doc, f, allow_unicode=True, sort_keys=False)
+    pattng_docs = [item["pattng"] for item in pinned]
+    with open(os.path.join(OUT_DIR, "pattng-bs.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng_docs, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    pattng_min = json.dumps(pattng_docs, ensure_ascii=False, separators=(",", ":"))
+    write_file("pattng-bs.min.json", pattng_min)
+    write_file(
+        "pattng-bs.b64.txt",
+        base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
+    )
+    # Full PattNG sub: BS (Finalmask) first, then regular nodes as CUSTOM JSON.
+    pattng_full = list(pattng_docs)
+    for n in final:
+        converted = share_uri_to_pattng_json(n["final_raw"], n["display_name"])
+        if converted:
+            pattng_full.append(converted)
+        else:
+            print("WARN: skip PattNG convert", n.get("display_name"), n.get("scheme"))
+    with open(os.path.join(OUT_DIR, "pattng-full.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng_full, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    pattng_full_min = json.dumps(pattng_full, ensure_ascii=False, separators=(",", ":"))
+    write_file("pattng-full.min.json", pattng_full_min)
+    write_file(
+        "pattng-full.b64.txt",
+        base64.b64encode(pattng_full_min.encode("utf-8")).decode("ascii"),
+    )
 
     report = []
     for item in pinned:
@@ -963,6 +1268,13 @@ def main():
             "output/top30.txt",
             "output/top30.b64.txt",
             "output/bs.txt",
+            "output/happ-bs.txt",
+            "output/pattng-bs.json",
+            "output/pattng-bs.min.json",
+            "output/pattng-bs.b64.txt",
+            "output/pattng-full.json",
+            "output/pattng-full.min.json",
+            "output/pattng-full.b64.txt",
             "output/whitelist.yaml",
             "output/report.json",
             "output/summary.yaml",
