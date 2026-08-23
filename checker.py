@@ -389,7 +389,7 @@ def awg_conf_to_uri(interface, peer, display_name):
         ("i5", interface.get("I5")),
     ]
     for key, value in optional:
-        if value:
+        if value is not None and str(value).strip() != "":
             query[key] = value
     query_str = "&".join(k + "=" + quote(str(v), safe="") for k, v in query.items())
     userinfo = quote(private_key, safe="")
@@ -398,10 +398,11 @@ def awg_conf_to_uri(interface, peer, display_name):
 
 def load_pinned_awg():
     pinned = []
+    errors = []
     for filename, country in PINNED_AWG_CONFIGS:
         path = os.path.join(BASE_DIR, filename)
         if not os.path.isfile(path):
-            print("WARN: pinned config missing:", path)
+            errors.append("pinned config missing: " + path)
             continue
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -410,7 +411,7 @@ def load_pinned_awg():
             display_name = "Белый список | " + (country_display(country) or country)
             uri = awg_conf_to_uri(interface, peer, display_name)
             if not uri:
-                print("WARN: pinned config incomplete:", filename)
+                errors.append("pinned config incomplete: " + filename)
                 continue
             dest = os.path.join(OUT_DIR, filename)
             shutil.copy2(path, dest)
@@ -425,7 +426,11 @@ def load_pinned_awg():
             })
             print("INFO: pinned", filename, "->", display_name)
         except Exception as exc:
-            print("WARN: pinned config failed:", filename, str(exc))
+            errors.append("pinned config failed: " + filename + " " + str(exc))
+    if errors:
+        raise RuntimeError("pinned AWG configs must always be present: " + "; ".join(errors))
+    if len(pinned) != len(PINNED_AWG_CONFIGS):
+        raise RuntimeError("pinned AWG configs must always be present")
     return pinned
 
 
