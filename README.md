@@ -33,9 +33,13 @@ python checker.py
 
 ## Итоговая ссылка на подписку
 
+https://cdn.jsdelivr.net/gh/zaigraevstepan7-afk/bozya_vpn@main/output/top30.txt
+
+Зеркало GitHub (иногда долго кэширует старый файл):
+
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top30.txt
 
-В начале списка всегда идут 3 закреплённых AWG-сервера белого списка
+В начале списка всегда идут закреплённые AWG-сервера белого списка
 (Германия, Финляндия, Польша) — без пинга и без сортировки.
 
 ## Расписание
