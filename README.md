@@ -39,16 +39,21 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top3
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
 
-Для **PattNG** (CUSTOM JSON + Finalmask из Amnezia `I1`/`Jc`):
+Для **PattNG** — полная подписка (БС сверху + обычные):
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-full.json
+
+Только БС для PattNG:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-В начале `top30.txt` всегда идут 3 сервера белого списка (`BS DE` / `BS FI` / `BS PL`)
-в формате `wireguard://` — без пинга и без сортировки.
+В начале подписки всегда 3 сервера белого списка:
+`Белый список | 🇩🇪 Германия` / `🇫🇮 Финляндия` / `🇵🇱 Польша`
+(без пинга и без сортировки).
 
-Happ/Xray не умеют AmneziaWG 2.0. PattNG получает маскировку через Finalmask
-(`pattng-bs.json`). Для полного AWG импортируй `output/LTE*WARPv2_*.conf`
-в приложение AmneziaWG. Исходники/патч для PattNG — в `pattng-patch/`.
+Happ/Xray не умеют AmneziaWG 2.0. PattNG получает маскировку через Finalmask.
+Для полного AWG импортируй `output/LTE*WARPv2_*.conf` в AmneziaWG.
+Исходники/патч для PattNG — в `pattng-patch/`.
 
 ## Расписание
 

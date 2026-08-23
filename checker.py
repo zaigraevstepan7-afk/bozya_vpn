@@ -414,15 +414,9 @@ def awg_conf_to_uri(interface, peer, display_name):
     ]
     query_str = _encode_query(query)
     userinfo = quote(private_key, safe="-_")
-    # Happ title limit is 30 chars; put the long Russian label in serverDescription.
-    short = display_name
-    if "Германия" in display_name or display_name.endswith("DE"):
-        short = "BS DE"
-    elif "Финляндия" in display_name or display_name.endswith("FI"):
-        short = "BS FI"
-    elif "Польша" in display_name or display_name.endswith("PL"):
-        short = "BS PL"
-    desc = base64.b64encode(display_name.encode("utf-8")).decode("ascii")
+    # Title: "Белый список | 🇩🇪 Германия" (fits Happ's ~30 char limit).
+    short = (display_name or "Белый список")[:30]
+    desc = base64.b64encode((display_name or short).encode("utf-8")).decode("ascii")
     fragment = quote(short, safe="") + "?serverDescription=" + desc
     return [
         "wireguard://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
@@ -538,6 +532,28 @@ def awg_to_finalmask(interface):
     }
 
 
+def _pattng_shell(remarks, outbound):
+    return {
+        "remarks": remarks,
+        "log": {"loglevel": "warning"},
+        "inbounds": [{
+            "tag": "socks",
+            "port": 10808,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "settings": {"udp": True},
+        }],
+        "outbounds": [
+            outbound,
+            {"tag": "direct", "protocol": "freedom"},
+        ],
+        "routing": {
+            "domainStrategy": "AsIs",
+            "rules": [],
+        },
+    }
+
+
 def awg_conf_to_pattng_json(interface, peer, display_name):
     """Full Xray custom config that stock PattNG imports and runs as-is."""
     private_key = interface.get("PrivateKey") or ""
@@ -556,13 +572,6 @@ def awg_conf_to_pattng_json(interface, peer, display_name):
             reserved.append(int(part))
     if len(reserved) != 3:
         reserved = [0, 0, 0]
-    short = display_name
-    if "Германия" in display_name:
-        short = "BS DE"
-    elif "Финляндия" in display_name:
-        short = "BS FI"
-    elif "Польша" in display_name:
-        short = "BS PL"
     outbound = {
         "tag": "proxy",
         "protocol": "wireguard",
@@ -581,25 +590,188 @@ def awg_conf_to_pattng_json(interface, peer, display_name):
     finalmask = awg_to_finalmask(interface)
     if finalmask:
         outbound["streamSettings"] = {"finalmask": finalmask}
-    return {
-        "remarks": short,
-        "log": {"loglevel": "warning"},
-        "inbounds": [{
-            "tag": "socks",
-            "port": 10808,
-            "listen": "127.0.0.1",
-            "protocol": "socks",
-            "settings": {"udp": True},
-        }],
-        "outbounds": [
-            outbound,
-            {"tag": "direct", "protocol": "freedom"},
-        ],
-        "routing": {
-            "domainStrategy": "AsIs",
-            "rules": [],
-        },
-    }
+    return _pattng_shell(display_name or "Белый список", outbound)
+
+
+def share_uri_to_pattng_json(uri, remarks=None):
+    """Best-effort share-link → PattNG CUSTOM JSON (regular nodes in full sub)."""
+    node = parse_node(uri)
+    if not node:
+        return None
+    title = remarks or node.get("name") or (node.get("host") or "node")
+    scheme = node["scheme"]
+    try:
+        parsed = urlparse(uri)
+        query = {}
+        if parsed.query:
+            for part in parsed.query.split("&"):
+                if "=" not in part:
+                    continue
+                k, v = part.split("=", 1)
+                query[unquote(k)] = unquote(v)
+        host = parsed.hostname or node.get("host")
+        port = parsed.port or node.get("port") or 443
+        if not host:
+            return None
+        stream = {}
+        network = (query.get("type") or query.get("network") or "tcp").lower()
+        if network in ("ws", "websocket"):
+            stream["network"] = "ws"
+            stream["wsSettings"] = {
+                "path": query.get("path") or "/",
+                "headers": {"Host": query.get("host") or query.get("sni") or host},
+            }
+        elif network in ("grpc", "gun"):
+            stream["network"] = "grpc"
+            stream["grpcSettings"] = {"serviceName": query.get("serviceName") or query.get("path") or ""}
+        elif network in ("httpupgrade",):
+            stream["network"] = "httpupgrade"
+            stream["httpupgradeSettings"] = {
+                "path": query.get("path") or "/",
+                "host": query.get("host") or "",
+            }
+        elif network in ("xhttp", "splithttp"):
+            stream["network"] = "xhttp"
+            stream["xhttpSettings"] = {
+                "path": query.get("path") or "/",
+                "host": query.get("host") or "",
+                "mode": query.get("mode") or "",
+            }
+        else:
+            stream["network"] = "tcp"
+
+        security = (query.get("security") or query.get("tls") or "none").lower()
+        if security in ("tls", "reality"):
+            stream["security"] = security
+            tls = {
+                "serverName": query.get("sni") or query.get("host") or host,
+                "fingerprint": query.get("fp") or "",
+                "allowInsecure": query.get("allowInsecure") in ("1", "true", "TRUE"),
+            }
+            alpn = query.get("alpn")
+            if alpn:
+                tls["alpn"] = [x for x in alpn.split(",") if x]
+            if security == "reality":
+                tls["publicKey"] = query.get("pbk") or ""
+                tls["shortId"] = query.get("sid") or ""
+                tls["spiderX"] = query.get("spx") or ""
+            key = "realitySettings" if security == "reality" else "tlsSettings"
+            stream[key] = tls
+
+        if scheme == "vless":
+            uuid = unquote(parsed.username or "")
+            if not uuid:
+                return None
+            user = {"id": uuid, "encryption": query.get("encryption") or "none"}
+            if query.get("flow"):
+                user["flow"] = query.get("flow")
+            outbound = {
+                "tag": "proxy",
+                "protocol": "vless",
+                "settings": {
+                    "vnext": [{
+                        "address": host,
+                        "port": int(port),
+                        "users": [user],
+                    }]
+                },
+                "streamSettings": stream,
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "trojan":
+            password = unquote(parsed.username or "")
+            if not password:
+                return None
+            if "security" not in stream:
+                stream["security"] = "tls"
+                stream["tlsSettings"] = {
+                    "serverName": query.get("sni") or host,
+                    "allowInsecure": query.get("allowInsecure") in ("1", "true", "TRUE"),
+                }
+            outbound = {
+                "tag": "proxy",
+                "protocol": "trojan",
+                "settings": {
+                    "servers": [{
+                        "address": host,
+                        "port": int(port),
+                        "password": password,
+                    }]
+                },
+                "streamSettings": stream,
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "hysteria2":
+            password = unquote(parsed.username or "")
+            if not password:
+                return None
+            hy = {
+                "password": password,
+            }
+            if query.get("obfs"):
+                hy["obfs"] = query.get("obfs")
+            if query.get("obfs-password") or query.get("obfsPassword"):
+                hy["obfsPassword"] = query.get("obfs-password") or query.get("obfsPassword")
+            outbound = {
+                "tag": "proxy",
+                "protocol": "hysteria2",
+                "settings": {
+                    "servers": [{
+                        "address": host,
+                        "port": int(port),
+                        **hy,
+                    }]
+                },
+                "streamSettings": {
+                    "network": "hysteria",
+                    "security": "tls",
+                    "tlsSettings": {
+                        "serverName": query.get("sni") or host,
+                        "allowInsecure": query.get("insecure") in ("1", "true", "TRUE"),
+                    },
+                },
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "vmess" and node.get("data"):
+            data = node["data"]
+            net = (data.get("net") or "tcp").lower()
+            scy = data.get("scy") or "auto"
+            stream_v = {"network": "ws" if net in ("ws", "websocket") else net}
+            if stream_v["network"] == "ws":
+                stream_v["wsSettings"] = {
+                    "path": data.get("path") or "/",
+                    "headers": {"Host": data.get("host") or data.get("sni") or host},
+                }
+            tls_on = (data.get("tls") or "").lower() in ("tls", "reality")
+            if tls_on:
+                stream_v["security"] = "tls"
+                stream_v["tlsSettings"] = {
+                    "serverName": data.get("sni") or data.get("host") or host,
+                    "allowInsecure": False,
+                }
+            outbound = {
+                "tag": "proxy",
+                "protocol": "vmess",
+                "settings": {
+                    "vnext": [{
+                        "address": data.get("add") or host,
+                        "port": int(data.get("port") or port),
+                        "users": [{
+                            "id": data.get("id") or "",
+                            "alterId": int(data.get("aid") or 0),
+                            "security": scy,
+                        }],
+                    }]
+                },
+                "streamSettings": stream_v,
+            }
+            return _pattng_shell(title, outbound)
+    except Exception:
+        return None
+    return None
 
 
 def load_pinned_awg():
@@ -1017,6 +1189,23 @@ def main():
         "pattng-bs.b64.txt",
         base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
     )
+    # Full PattNG sub: BS (Finalmask) first, then regular nodes as CUSTOM JSON.
+    pattng_full = list(pattng_docs)
+    for n in final:
+        converted = share_uri_to_pattng_json(n["final_raw"], n["display_name"])
+        if converted:
+            pattng_full.append(converted)
+        else:
+            print("WARN: skip PattNG convert", n.get("display_name"), n.get("scheme"))
+    with open(os.path.join(OUT_DIR, "pattng-full.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng_full, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    pattng_full_min = json.dumps(pattng_full, ensure_ascii=False, separators=(",", ":"))
+    write_file("pattng-full.min.json", pattng_full_min)
+    write_file(
+        "pattng-full.b64.txt",
+        base64.b64encode(pattng_full_min.encode("utf-8")).decode("ascii"),
+    )
 
     report = []
     for item in pinned:
@@ -1083,6 +1272,9 @@ def main():
             "output/pattng-bs.json",
             "output/pattng-bs.min.json",
             "output/pattng-bs.b64.txt",
+            "output/pattng-full.json",
+            "output/pattng-full.min.json",
+            "output/pattng-full.b64.txt",
             "output/whitelist.yaml",
             "output/report.json",
             "output/summary.yaml",
