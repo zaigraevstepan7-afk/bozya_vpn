@@ -352,6 +352,35 @@ def split_endpoint(endpoint):
     return endpoint, None
 
 
+def _cidr_addresses(address):
+    parts = []
+    for raw in (address or "").split(","):
+        item = raw.strip()
+        if not item:
+            continue
+        if "/" in item:
+            parts.append(item)
+        elif ":" in item:
+            parts.append(item + "/128")
+        else:
+            parts.append(item + "/32")
+    return parts
+
+
+def _encode_query(items):
+    parts = []
+    for key, value in items:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text == "":
+            continue
+        # Always percent-encode '+' '/' '=' so URI parsers do not treat
+        # base64 keys as path separators or form-spaces.
+        parts.append(key + "=" + quote(text, safe="-_"))
+    return "&".join(parts)
+
+
 def awg_conf_to_uri(interface, peer, display_name):
     private_key = interface.get("PrivateKey") or ""
     public_key = peer.get("PublicKey") or ""
@@ -360,17 +389,36 @@ def awg_conf_to_uri(interface, peer, display_name):
     host, port = split_endpoint(endpoint)
     if not private_key or not public_key or not address or not host or not port:
         return None
-    query = {
-        "publickey": public_key,
-        "address": address,
-    }
-    optional = [
-        ("presharedkey", peer.get("PresharedKey")),
-        ("mtu", interface.get("MTU")),
-        ("dns", interface.get("DNS")),
-        ("allowedips", peer.get("AllowedIPs")),
-        ("keepalive", peer.get("PersistentKeepalive")),
-        ("reserved", peer.get("Reserved") or interface.get("Reserved")),
+    addrs = _cidr_addresses(address)
+    if not addrs:
+        return None
+    addr_all = ",".join(addrs)
+    addr_v4 = next((item for item in addrs if ":" not in item.split("/", 1)[0]), addrs[0])
+    dns = re.sub(r"\s+", "", interface.get("DNS") or "")
+    reserved = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
+    keepalive = peer.get("PersistentKeepalive") or "25"
+    allowed = peer.get("AllowedIPs") or "0.0.0.0/0, ::/0"
+    i1 = interface.get("I1") or ""
+    # Happ is case-sensitive on Android query keys. Include every alias it and
+    # Hiddify/v2rayN are known to read, plus WARP defaults AmneziaWG fills in.
+    happ_query = [
+        ("publicKey", public_key),
+        ("publickey", public_key),
+        ("peer_pk", public_key),
+        ("privateKey", private_key),
+        ("pk", private_key),
+        ("localAddress", addr_all),
+        ("local_address", addr_all),
+        ("address", addr_all),
+        ("ip", addr_v4),
+        ("mtu", interface.get("MTU") or "1280"),
+        ("dns", dns),
+        ("allowedIPs", allowed),
+        ("allowedips", allowed),
+        ("reserved", reserved),
+        ("keepalive", keepalive),
+        ("persistentKeepalive", keepalive),
+        ("ifid", "0"),
         ("jc", interface.get("Jc")),
         ("jmin", interface.get("Jmin")),
         ("jmax", interface.get("Jmax")),
@@ -382,22 +430,21 @@ def awg_conf_to_uri(interface, peer, display_name):
         ("h2", interface.get("H2")),
         ("h3", interface.get("H3")),
         ("h4", interface.get("H4")),
-        ("i1", interface.get("I1")),
+        ("i1", i1),
+        ("I1", i1),
         ("i2", interface.get("I2")),
         ("i3", interface.get("I3")),
         ("i4", interface.get("I4")),
         ("i5", interface.get("I5")),
+        ("presharedkey", peer.get("PresharedKey")),
     ]
-    for key, value in optional:
-        if value is not None and str(value).strip() != "":
-            query[key] = value
-    query_str = "&".join(k + "=" + quote(str(v), safe="") for k, v in query.items())
-    userinfo = quote(private_key, safe="")
+    query_str = _encode_query(happ_query)
+    userinfo = quote(private_key, safe="-_")
     fragment = quote(display_name, safe="")
-    # Happ/Hiddify understand awg://; some builds only pick up wireguard://.
+    authority = host + ":" + str(port)
     return [
-        "awg://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
-        "wireguard://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
+        "awg://" + userinfo + "@" + authority + "/?" + query_str + "#" + fragment,
+        "wg://" + authority + "/?" + query_str + "#" + fragment,
     ]
 
 
