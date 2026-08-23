@@ -37,7 +37,7 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top3
 
 Только серверы белого списка (WireGuard для Happ):
 
-https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bs.txt
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
 
 В начале `top30.txt` всегда идут 3 сервера белого списка (`BS DE` / `BS FI` / `BS PL`)
 в формате `wireguard://` — без пинга и без сортировки.
