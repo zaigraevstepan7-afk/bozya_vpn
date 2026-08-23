@@ -47,9 +47,14 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-В начале подписки всегда 3 сервера белого списка:
-`Белый список | 🇩🇪 Германия` / `🇫🇮 Финляндия` / `🇵🇱 Польша`
+В начале подписки всегда:
+- 3 сервера белого списка (`Белый список | 🇩🇪/🇫🇮/🇵🇱`)
+- `🇫🇮 Лютый обход | VIP LTE Финляндия`
+- `🇫🇷 Франция` (из Griffon, обновляется при каждом прогоне)
 (без пинга и без сортировки).
+
+В автопарсер также входит источник:
+`https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (с HWID).
 
 Happ/Xray не умеют AmneziaWG 2.0. PattNG получает маскировку через Finalmask.
 Для полного AWG импортируй `output/LTE*WARPv2_*.conf` в AmneziaWG.
