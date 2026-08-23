@@ -400,6 +400,8 @@ def awg_conf_to_uri(interface, peer, display_name):
     # Prefer IPv4 local address — Happ WireGuard examples use a single address.
     addr_v4 = next((item for item in addrs if ":" not in item.split("/", 1)[0]), addrs[0])
     reserved = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
+    # Keep Happ URIs short: oversized links (esp. I1) are dropped from subscriptions.
+    # Amnezia I1/Jc for PattNG go into output/pattng-bs.json (Finalmask), not here.
     query = [
         ("publickey", public_key),
         ("address", addr_v4),
@@ -408,23 +410,6 @@ def awg_conf_to_uri(interface, peer, display_name):
         ("allowedips", peer.get("AllowedIPs") or "0.0.0.0/0,::/0"),
         ("reserved", reserved),
         ("keepalive", peer.get("PersistentKeepalive") or "25"),
-        # AmneziaWG extras: ignored by plain Happ WireGuard, kept for AWG-aware forks.
-        ("jc", interface.get("Jc")),
-        ("jmin", interface.get("Jmin")),
-        ("jmax", interface.get("Jmax")),
-        ("s1", interface.get("S1")),
-        ("s2", interface.get("S2")),
-        ("s3", interface.get("S3")),
-        ("s4", interface.get("S4")),
-        ("h1", interface.get("H1")),
-        ("h2", interface.get("H2")),
-        ("h3", interface.get("H3")),
-        ("h4", interface.get("H4")),
-        ("i1", interface.get("I1")),
-        ("i2", interface.get("I2")),
-        ("i3", interface.get("I3")),
-        ("i4", interface.get("I4")),
-        ("i5", interface.get("I5")),
         ("presharedkey", peer.get("PresharedKey")),
     ]
     query_str = _encode_query(query)
@@ -501,6 +486,122 @@ def awg_conf_to_clash(interface, peer, display_name):
     return proxy
 
 
+def _i1_to_hex(i1):
+    text = (i1 or "").strip()
+    match = re.search(r"<b\s+0x([0-9a-fA-F]+)>", text)
+    if match:
+        return match.group(1).lower()
+    if re.fullmatch(r"[0-9a-fA-F]+", text) and len(text) % 2 == 0:
+        return text.lower()
+    return None
+
+
+def awg_to_finalmask(interface):
+    """Map AmneziaWG I1/Jc junk into Xray Finalmask UDP noise for PattNG/Xray.
+
+    Spec: https://xtls.github.io/en/config/transports/finalmask.html
+    PattNG applies streamSettings.finalmask on WireGuard outbounds (CUSTOM JSON
+    is passed to the core as-is).
+    """
+    noises = []
+    i1_hex = _i1_to_hex(interface.get("I1"))
+    if i1_hex:
+        noises.append({
+            "type": "hex",
+            "packet": i1_hex,
+            "delay": "0",
+        })
+    try:
+        jc = int(interface.get("Jc") or 0)
+    except Exception:
+        jc = 0
+    jmin = str(interface.get("Jmin") or "40").strip() or "40"
+    jmax = str(interface.get("Jmax") or "70").strip() or "70"
+    size = jmin + "-" + jmax
+    for _ in range(max(0, min(jc, 10))):
+        noises.append({
+            "rand": size,
+            "delay": "0-5",
+        })
+    if not noises:
+        return None
+    return {
+        "udp": [
+            {
+                "type": "noise",
+                "settings": {
+                    "reset": "25-60",
+                    "noise": noises,
+                },
+            }
+        ]
+    }
+
+
+def awg_conf_to_pattng_json(interface, peer, display_name):
+    """Full Xray custom config that stock PattNG imports and runs as-is."""
+    private_key = interface.get("PrivateKey") or ""
+    public_key = peer.get("PublicKey") or ""
+    address = interface.get("Address") or ""
+    endpoint = peer.get("Endpoint") or ""
+    host, port = split_endpoint(endpoint)
+    addrs = _cidr_addresses(address)
+    if not private_key or not public_key or not host or not port or not addrs:
+        return None
+    reserved_raw = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
+    reserved = []
+    for part in reserved_raw.replace("[", "").replace("]", "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            reserved.append(int(part))
+    if len(reserved) != 3:
+        reserved = [0, 0, 0]
+    short = display_name
+    if "Германия" in display_name:
+        short = "BS DE"
+    elif "Финляндия" in display_name:
+        short = "BS FI"
+    elif "Польша" in display_name:
+        short = "BS PL"
+    outbound = {
+        "tag": "proxy",
+        "protocol": "wireguard",
+        "settings": {
+            "secretKey": private_key,
+            "address": addrs,
+            "peers": [{
+                "endpoint": host + ":" + str(port),
+                "publicKey": public_key,
+            }],
+            "mtu": int(interface.get("MTU") or 1280),
+            "reserved": reserved,
+            "domainStrategy": "ForceIP",
+        },
+    }
+    finalmask = awg_to_finalmask(interface)
+    if finalmask:
+        outbound["streamSettings"] = {"finalmask": finalmask}
+    return {
+        "remarks": short,
+        "log": {"loglevel": "warning"},
+        "inbounds": [{
+            "tag": "socks",
+            "port": 10808,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "settings": {"udp": True},
+        }],
+        "outbounds": [
+            outbound,
+            {"tag": "direct", "protocol": "freedom"},
+        ],
+        "routing": {
+            "domainStrategy": "AsIs",
+            "rules": [],
+        },
+    }
+
+
 def load_pinned_awg():
     pinned = []
     errors = []
@@ -516,7 +617,8 @@ def load_pinned_awg():
             display_name = "Белый список | " + (country_display(country) or country)
             uris = awg_conf_to_uri(interface, peer, display_name)
             clash = awg_conf_to_clash(interface, peer, display_name)
-            if not uris or not clash:
+            pattng = awg_conf_to_pattng_json(interface, peer, display_name)
+            if not uris or not clash or not pattng:
                 errors.append("pinned config incomplete: " + filename)
                 continue
             dest = os.path.join(OUT_DIR, filename)
@@ -530,6 +632,7 @@ def load_pinned_awg():
                 "port": int(port) if port and str(port).isdigit() else port,
                 "uris": uris,
                 "clash": clash,
+                "pattng": pattng,
             })
             print("INFO: pinned", filename, "->", display_name)
         except Exception as exc:
@@ -891,6 +994,9 @@ def main():
     write_file("top30.b64.txt", b64_text)
     # Tiny subscription with only BS/AWG pins — use if the mixed list drops them.
     write_file("bs.txt", "\n".join(pinned_uris))
+    write_file("happ-bs.txt", "\n".join(pinned_uris))
+    write_file("bs.b64.txt", base64.b64encode(("\n".join(pinned_uris) + "\n").encode("utf-8")).decode("ascii"))
+    write_file("happ-bs.b64.txt", base64.b64encode(("\n".join(pinned_uris) + "\n").encode("utf-8")).decode("ascii"))
     clash_doc = {
         "proxies": [item["clash"] for item in pinned],
         "proxy-groups": [{
@@ -901,6 +1007,16 @@ def main():
     }
     with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(clash_doc, f, allow_unicode=True, sort_keys=False)
+    pattng_docs = [item["pattng"] for item in pinned]
+    with open(os.path.join(OUT_DIR, "pattng-bs.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng_docs, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    pattng_min = json.dumps(pattng_docs, ensure_ascii=False, separators=(",", ":"))
+    write_file("pattng-bs.min.json", pattng_min)
+    write_file(
+        "pattng-bs.b64.txt",
+        base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
+    )
 
     report = []
     for item in pinned:
@@ -963,6 +1079,10 @@ def main():
             "output/top30.txt",
             "output/top30.b64.txt",
             "output/bs.txt",
+            "output/happ-bs.txt",
+            "output/pattng-bs.json",
+            "output/pattng-bs.min.json",
+            "output/pattng-bs.b64.txt",
             "output/whitelist.yaml",
             "output/report.json",
             "output/summary.yaml",
