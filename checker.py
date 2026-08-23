@@ -43,6 +43,11 @@ PINNED_AWG_CONFIGS = [
     ("LTEpWARPv2_60.conf", "PL"),
 ]
 
+# Pinned Xray/Happ custom JSON configs (e.g. VIP LTE bypass). After AWG pins.
+PINNED_CUSTOM_JSON = [
+    ("VIP_LTE_Finland.json", "FI", "🇫🇮 Лютый обход | VIP LTE Финляндия"),
+]
+
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
 MAX_TEST_PER_SOURCE = 40
@@ -816,6 +821,124 @@ def load_pinned_awg():
     return pinned
 
 
+def custom_json_to_vless_uri(doc, display_name):
+    """Build a Happ-compatible vless:// share link from an Xray custom config."""
+    outbounds = doc.get("outbounds") or []
+    outbound = next((o for o in outbounds if isinstance(o, dict) and o.get("protocol") == "vless"), None)
+    if not outbound:
+        return None
+    vnext = ((outbound.get("settings") or {}).get("vnext") or [None])[0]
+    if not vnext:
+        return None
+    user = (vnext.get("users") or [None])[0] or {}
+    uuid = user.get("id") or ""
+    host = vnext.get("address") or ""
+    port = vnext.get("port") or 443
+    if not uuid or not host:
+        return None
+    stream = outbound.get("streamSettings") or {}
+    xh = stream.get("xhttpSettings") or stream.get("splithttpSettings") or {}
+    tls = stream.get("tlsSettings") or stream.get("realitySettings") or {}
+    security = stream.get("security") or "none"
+    params = [
+        ("encryption", user.get("encryption") or "none"),
+        ("security", security),
+        ("type", stream.get("network") or stream.get("method") or "tcp"),
+    ]
+    if user.get("flow"):
+        params.append(("flow", user.get("flow")))
+    sni = tls.get("serverName") or tls.get("server_name") or host
+    if sni:
+        params.append(("sni", sni))
+    fp = tls.get("fingerprint") or ""
+    if fp:
+        params.append(("fp", fp))
+    alpn = tls.get("alpn") or []
+    if isinstance(alpn, list) and alpn:
+        params.append(("alpn", ",".join(alpn)))
+    elif isinstance(alpn, str) and alpn:
+        params.append(("alpn", alpn))
+    if security == "reality":
+        if tls.get("publicKey"):
+            params.append(("pbk", tls.get("publicKey")))
+        if tls.get("shortId"):
+            params.append(("sid", tls.get("shortId")))
+        if tls.get("spiderX"):
+            params.append(("spx", tls.get("spiderX")))
+    network = (stream.get("network") or "").lower()
+    if network in ("xhttp", "splithttp"):
+        if xh.get("mode"):
+            params.append(("mode", xh.get("mode")))
+        if xh.get("host"):
+            params.append(("host", xh.get("host")))
+        if xh.get("path"):
+            params.append(("path", xh.get("path")))
+        extra = xh.get("extra")
+        if extra is not None:
+            if isinstance(extra, (dict, list)):
+                params.append(("extra", json.dumps(extra, ensure_ascii=False, separators=(",", ":"))))
+            else:
+                params.append(("extra", str(extra)))
+    elif network in ("ws", "websocket"):
+        ws = stream.get("wsSettings") or {}
+        params.append(("path", ws.get("path") or "/"))
+        host_h = (ws.get("headers") or {}).get("Host") or ""
+        if host_h:
+            params.append(("host", host_h))
+    query = _encode_query(params)
+    fragment = quote(display_name or doc.get("remarks") or host, safe="")
+    return "vless://" + uuid + "@" + host + ":" + str(port) + "?" + query + "#" + fragment
+
+
+def load_pinned_custom():
+    """Load pinned CUSTOM JSON profiles (VIP LTE etc.)."""
+    pinned = []
+    errors = []
+    for filename, country, display_name in PINNED_CUSTOM_JSON:
+        path = os.path.join(BASE_DIR, filename)
+        if not os.path.isfile(path):
+            errors.append("pinned custom missing: " + path)
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+            if not isinstance(doc, dict):
+                errors.append("pinned custom not an object: " + filename)
+                continue
+            doc = dict(doc)
+            doc["remarks"] = display_name
+            uri = custom_json_to_vless_uri(doc, display_name)
+            if not uri:
+                errors.append("pinned custom has no vless outbound: " + filename)
+                continue
+            dest = os.path.join(OUT_DIR, filename)
+            with open(dest, "w", encoding="utf-8") as f:
+                json.dump(doc, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+            # host/port for report
+            ob = next((o for o in (doc.get("outbounds") or []) if isinstance(o, dict) and o.get("protocol") == "vless"), {})
+            vnext = ((ob.get("settings") or {}).get("vnext") or [{}])[0]
+            pinned.append({
+                "file": filename,
+                "display_name": display_name,
+                "country": country,
+                "host": vnext.get("address"),
+                "port": vnext.get("port"),
+                "uris": [uri],
+                "clash": None,
+                "pattng": doc,
+                "kind": "custom",
+            })
+            print("INFO: pinned custom", filename, "->", display_name)
+        except Exception as exc:
+            errors.append("pinned custom failed: " + filename + " " + str(exc))
+    if errors:
+        raise RuntimeError("pinned custom configs must always be present: " + "; ".join(errors))
+    if len(pinned) != len(PINNED_CUSTOM_JSON):
+        raise RuntimeError("pinned custom configs must always be present")
+    return pinned
+
+
 def fetch_source(url):
     headers = {
         "User-Agent": "v2rayN/7.12.4",
@@ -953,6 +1076,9 @@ def main():
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
     pinned = load_pinned_awg()
+    pinned_custom = load_pinned_custom()
+    # Order: AWG whitelist first, then VIP LTE / custom bypass pins.
+    pinned_all = pinned + pinned_custom
 
     per_source = {}
     for url in SOURCES:
@@ -1157,7 +1283,7 @@ def main():
         node["final_raw"] = rename_node(node, new_name)
 
     pinned_uris = []
-    for item in pinned:
+    for item in pinned_all:
         pinned_uris.extend(item["uris"])
     top_lines = pinned_uris + [n["final_raw"] for n in final]
     top_text = "\n".join(top_lines)
@@ -1165,16 +1291,19 @@ def main():
     b64_text = base64.b64encode((top_text + "\n").encode("utf-8")).decode("ascii")
     write_file("top30.b64.txt", b64_text)
     # Tiny subscription with only BS/AWG pins — use if the mixed list drops them.
-    write_file("bs.txt", "\n".join(pinned_uris))
-    write_file("happ-bs.txt", "\n".join(pinned_uris))
-    write_file("bs.b64.txt", base64.b64encode(("\n".join(pinned_uris) + "\n").encode("utf-8")).decode("ascii"))
-    write_file("happ-bs.b64.txt", base64.b64encode(("\n".join(pinned_uris) + "\n").encode("utf-8")).decode("ascii"))
+    awg_uris = []
+    for item in pinned:
+        awg_uris.extend(item["uris"])
+    write_file("bs.txt", "\n".join(awg_uris))
+    write_file("happ-bs.txt", "\n".join(awg_uris))
+    write_file("bs.b64.txt", base64.b64encode(("\n".join(awg_uris) + "\n").encode("utf-8")).decode("ascii"))
+    write_file("happ-bs.b64.txt", base64.b64encode(("\n".join(awg_uris) + "\n").encode("utf-8")).decode("ascii"))
     clash_doc = {
-        "proxies": [item["clash"] for item in pinned],
+        "proxies": [item["clash"] for item in pinned if item.get("clash")],
         "proxy-groups": [{
             "name": "Белый список",
             "type": "select",
-            "proxies": [item["display_name"] for item in pinned],
+            "proxies": [item["display_name"] for item in pinned if item.get("clash")],
         }],
     }
     with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
@@ -1189,8 +1318,8 @@ def main():
         "pattng-bs.b64.txt",
         base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
     )
-    # Full PattNG sub: BS (Finalmask) first, then regular nodes as CUSTOM JSON.
-    pattng_full = list(pattng_docs)
+    # Full PattNG: AWG + VIP LTE pins first, then regular nodes.
+    pattng_full = [item["pattng"] for item in pinned_all]
     for n in final:
         converted = share_uri_to_pattng_json(n["final_raw"], n["display_name"])
         if converted:
@@ -1208,12 +1337,12 @@ def main():
     )
 
     report = []
-    for item in pinned:
+    for item in pinned_all:
         report.append({
             "display_name": item["display_name"],
             "source": "pinned",
             "file": item["file"],
-            "scheme": "awg",
+            "scheme": item.get("kind") or "awg",
             "host": item["host"],
             "port": item["port"],
             "country": item["country"],
@@ -1258,12 +1387,12 @@ def main():
 
     summary = {
         "selected": len(final),
-        "pinned": len(pinned),
+        "pinned": len(pinned_all),
         "source_counts": {},
         "country_counts": {},
         "clash_royale_selected": clash_name,
         "speed_selected": speed_name,
-        "pinned_configs": [item["file"] for item in pinned],
+        "pinned_configs": [item["file"] for item in pinned_all],
         "generated_files": [
             "output/top30.txt",
             "output/top30.b64.txt",
@@ -1280,9 +1409,9 @@ def main():
             "output/summary.yaml",
             "output/clash_royale.txt",
             "output/speed.txt",
-        ] + ["output/" + item["file"] for item in pinned],
+        ] + ["output/" + item["file"] for item in pinned_all],
     }
-    for item in pinned:
+    for item in pinned_all:
         summary["source_counts"]["pinned"] = summary["source_counts"].get("pinned", 0) + 1
         summary["country_counts"][item["country"]] = summary["country_counts"].get(item["country"], 0) + 1
     for n in final:
@@ -1293,7 +1422,7 @@ def main():
     with open(os.path.join(OUT_DIR, "summary.yaml"), "w", encoding="utf-8") as f:
         yaml.safe_dump(summary, f, allow_unicode=True, sort_keys=False)
 
-    print("INFO: pinned:", len(pinned))
+    print("INFO: pinned:", len(pinned_all))
     print("INFO: selected:", len(final))
     print("INFO: clash_royale:", clash_name)
     print("INFO: speed:", speed_name)
