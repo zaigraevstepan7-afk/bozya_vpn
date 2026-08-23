@@ -258,6 +258,169 @@
     }
   },
   {
+    "dns": {
+      "servers": [
+        "1.1.1.1",
+        "1.0.0.1"
+      ],
+      "queryStrategy": "UseIP"
+    },
+    "routing": {
+      "rules": [
+        {
+          "type": "field",
+          "domain": [
+            "domain:sberbank.ru",
+            "domain:online.sberbank.ru",
+            "domain:tinkoff.ru",
+            "domain:tbank.ru",
+            "domain:vtb.ru",
+            "domain:alfabank.ru",
+            "domain:gazprombank.ru",
+            "domain:raiffeisen.ru",
+            "domain:open.ru",
+            "domain:psbank.ru",
+            "domain:sovcombank.ru",
+            "domain:rshb.ru",
+            "domain:mkb.ru",
+            "domain:gosuslugi.ru",
+            "domain:nalog.gov.ru",
+            "domain:mos.ru",
+            "domain:wildberries.ru",
+            "domain:ozon.ru",
+            "domain:market.yandex.ru",
+            "domain:aliexpress.ru",
+            "domain:yandex.ru",
+            "domain:yandex.net",
+            "domain:yastatic.net",
+            "domain:ya.ru",
+            "domain:mail.ru",
+            "domain:vk.com",
+            "domain:gismeteo.ru",
+            "domain:rp5.ru",
+            "domain:pogoda.mail.ru",
+            "domain:meteoinfo.ru",
+            "domain:accuweather.com",
+            "domain:2gis.ru",
+            "domain:avito.ru",
+            "domain:kinopoisk.ru",
+            "domain:rutube.ru",
+            "domain:max.ru"
+          ],
+          "outboundTag": "direct"
+        },
+        {
+          "type": "field",
+          "protocol": [
+            "bittorrent"
+          ],
+          "outboundTag": "direct"
+        }
+      ],
+      "domainMatcher": "hybrid",
+      "domainStrategy": "IPIfNonMatch"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true,
+          "auth": "noauth"
+        },
+        "sniffing": {
+          "enabled": true,
+          "routeOnly": false,
+          "destOverride": [
+            "http",
+            "tls",
+            "quic"
+          ]
+        }
+      },
+      {
+        "tag": "http",
+        "port": 10809,
+        "listen": "127.0.0.1",
+        "protocol": "http",
+        "settings": {
+          "allowTransparent": false
+        },
+        "sniffing": {
+          "enabled": true,
+          "routeOnly": false,
+          "destOverride": [
+            "http",
+            "tls",
+            "quic"
+          ]
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "web-interface.whit3.net",
+              "port": 443,
+              "users": [
+                {
+                  "id": "a6cf4b28-ba72-4e8c-90f8-6a884107ab3c",
+                  "encryption": "none",
+                  "flow": ""
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "xhttp",
+          "xhttpSettings": {
+            "mode": "packet-up",
+            "host": "web-interface.whit3.net",
+            "path": "/api/v7/sync/vids/",
+            "extra": {
+              "path": "/api/v7/sync/vids/",
+              "xPaddingKey": "_dc",
+              "xPaddingHeader": "X-Cache",
+              "xPaddingMethod": "tokenish",
+              "uplinkHTTPMethod": "GET",
+              "xPadding0bfsMode": true,
+              "xPaddingPlacement": "queryInHeader"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "web-interface.whit3.net",
+            "enableSessionResumption": false,
+            "fingerprint": "edge",
+            "alpn": [
+              "h2",
+              "http/1.1"
+            ]
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      },
+      {
+        "tag": "block",
+        "protocol": "blackhole"
+      }
+    ],
+    "remarks": "🇫🇮 Лютый обход | VIP LTE Финляндия",
+    "meta": {
+      "serverDescription": "«☀️ При отключении LTE/4G ☀️»"
+    }
+  },
+  {
     "remarks": "🇨🇦 Канада",
     "log": {
       "loglevel": "warning"
@@ -1319,64 +1482,6 @@
     }
   },
   {
-    "remarks": "🇳🇱 Нидерланды-7",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "77.67.89.180",
-              "port": 443,
-              "users": [
-                {
-                  "id": "a6cf4b28-ba72-4e8c-90f8-6a884107ab3c",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "lastchance.whit3.net",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "1xq4kMV5MBlwzlXjAI7oFZqtfIPMZfP2_7fTNfjOVjU",
-            "shortId": "4b1b942b4dfcfdf8",
-            "spiderX": ""
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
     "remarks": "🇱🇻 Латвия",
     "log": {
       "loglevel": "warning"
@@ -1970,66 +2075,6 @@
             "allowInsecure": false,
             "publicKey": "hCKAQfKTR1Fd-eQLeZaMqHrMwBpxNU4DTSlwxqO2zh4",
             "shortId": "51606f457c09fca9",
-            "spiderX": ""
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇳🇱 Нидерланды-8",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "144.31.207.4",
-              "port": 8443,
-              "users": [
-                {
-                  "id": "a6cf4b28-ba72-4e8c-90f8-6a884107ab3c",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "grpc",
-          "grpcSettings": {
-            "serviceName": "plot_grpc"
-          },
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "plot.whit3.net",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "Hcg9T_s9LuWkVQW14TzIPuyZio32WbA6irp782TUXnM",
-            "shortId": "0138875bd7d8725a",
             "spiderX": ""
           }
         }
