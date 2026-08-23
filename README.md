@@ -35,13 +35,16 @@ python checker.py
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top30.txt
 
-Только серверы белого списка (если в общей подписке их нет):
+Только серверы белого списка (WireGuard для Happ):
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bs.txt
 
-В начале `top30.txt` всегда идут 3 AWG-сервера белого списка
-(Германия, Финляндия, Польша) — без пинга и без сортировки.
-Исходные `.conf` для AmneziaWG лежат в `output/LTE*WARPv2_*.conf`.
+В начале `top30.txt` всегда идут 3 сервера белого списка (`BS DE` / `BS FI` / `BS PL`)
+в формате `wireguard://` — без пинга и без сортировки.
+
+Для реального AmneziaWG (как в приложении AmneziaWG) импортируй файлы
+`output/LTE*WARPv2_*.conf` — Happ не понимает схему `awg://` и ядро Xray
+не поднимает AmneziaWG 2.0 с пакетом `I1`.
 
 ## Расписание
 

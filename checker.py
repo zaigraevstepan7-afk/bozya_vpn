@@ -381,11 +381,11 @@ def _encode_query(items):
 
 
 def awg_conf_to_uri(interface, peer, display_name):
-    """Build one short awg:// share link for Happ.
+    """Build Happ-compatible WireGuard share links.
 
-    Duplicate alias fields and a second wg:// copy previously blew each line
-    past ~6KB; Happ then silently dropped the BS servers from the list.
-    Keep a single awg:// URI with the fields Happ/v2rayN actually read.
+    Happ docs only document wireguard:// (not awg://). Unknown schemes are
+    dropped from subscriptions, which is why BS servers never showed up.
+    Keep titles short (<=30 chars) and put the full name in serverDescription.
     """
     private_key = interface.get("PrivateKey") or ""
     public_key = peer.get("PublicKey") or ""
@@ -397,15 +397,18 @@ def awg_conf_to_uri(interface, peer, display_name):
     addrs = _cidr_addresses(address)
     if not addrs:
         return None
+    # Prefer IPv4 local address — Happ WireGuard examples use a single address.
+    addr_v4 = next((item for item in addrs if ":" not in item.split("/", 1)[0]), addrs[0])
     reserved = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
     query = [
         ("publickey", public_key),
-        ("address", ",".join(addrs)),
+        ("address", addr_v4),
         ("mtu", interface.get("MTU") or "1280"),
         ("dns", re.sub(r"\s+", "", interface.get("DNS") or "")),
         ("allowedips", peer.get("AllowedIPs") or "0.0.0.0/0,::/0"),
         ("reserved", reserved),
         ("keepalive", peer.get("PersistentKeepalive") or "25"),
+        # AmneziaWG extras: ignored by plain Happ WireGuard, kept for AWG-aware forks.
         ("jc", interface.get("Jc")),
         ("jmin", interface.get("Jmin")),
         ("jmax", interface.get("Jmax")),
@@ -426,9 +429,18 @@ def awg_conf_to_uri(interface, peer, display_name):
     ]
     query_str = _encode_query(query)
     userinfo = quote(private_key, safe="-_")
-    fragment = quote(display_name, safe="")
+    # Happ title limit is 30 chars; put the long Russian label in serverDescription.
+    short = display_name
+    if "Германия" in display_name or display_name.endswith("DE"):
+        short = "BS DE"
+    elif "Финляндия" in display_name or display_name.endswith("FI"):
+        short = "BS FI"
+    elif "Польша" in display_name or display_name.endswith("PL"):
+        short = "BS PL"
+    desc = base64.b64encode(display_name.encode("utf-8")).decode("ascii")
+    fragment = quote(short, safe="") + "?serverDescription=" + desc
     return [
-        "awg://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
+        "wireguard://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
     ]
 
 
