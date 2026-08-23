@@ -7,19 +7,20 @@ PattNG = форк v2rayNG на Xray. Схема `awg://` и ядро AmneziaWG 2
 
 ## Без пересборки APK (рекомендуется)
 
-Готовая подписка CUSTOM JSON (stock PattNG импортирует как есть):
+Полная подписка (БС сверху + обычные узлы):
+
+```
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-full.json
+```
+
+Только белый список:
 
 ```
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 ```
 
-В PattNG: подписки → добавить URL → обновить. Должны появиться **BS DE / BS FI / BS PL**.
-
-Base64-вариант (если клиент ждёт b64):
-
-```
-https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.b64.txt
-```
+В PattNG: подписки → добавить URL → обновить.
+Имена БС: **Белый список | 🇩🇪 Германия** / **🇫🇮 Финляндия** / **🇵🇱 Польша**.
 
 ## С пересборкой (awg:// и импорт .conf)
 
