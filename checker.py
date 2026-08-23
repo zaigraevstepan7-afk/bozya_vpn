@@ -393,7 +393,12 @@ def awg_conf_to_uri(interface, peer, display_name):
             query[key] = value
     query_str = "&".join(k + "=" + quote(str(v), safe="") for k, v in query.items())
     userinfo = quote(private_key, safe="")
-    return "awg://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + quote(display_name, safe="")
+    fragment = quote(display_name, safe="")
+    # Happ/Hiddify understand awg://; some builds only pick up wireguard://.
+    return [
+        "awg://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
+        "wireguard://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
+    ]
 
 
 def load_pinned_awg():
@@ -409,8 +414,8 @@ def load_pinned_awg():
                 text = f.read()
             interface, peer = parse_wg_conf(text)
             display_name = "Белый список | " + (country_display(country) or country)
-            uri = awg_conf_to_uri(interface, peer, display_name)
-            if not uri:
+            uris = awg_conf_to_uri(interface, peer, display_name)
+            if not uris:
                 errors.append("pinned config incomplete: " + filename)
                 continue
             dest = os.path.join(OUT_DIR, filename)
@@ -422,7 +427,7 @@ def load_pinned_awg():
                 "country": country,
                 "host": host,
                 "port": int(port) if port and str(port).isdigit() else port,
-                "uri": uri,
+                "uris": uris,
             })
             print("INFO: pinned", filename, "->", display_name)
         except Exception as exc:
@@ -774,7 +779,9 @@ def main():
         node["display_name"] = new_name
         node["final_raw"] = rename_node(node, new_name)
 
-    pinned_uris = [item["uri"] for item in pinned]
+    pinned_uris = []
+    for item in pinned:
+        pinned_uris.extend(item["uris"])
     top_lines = pinned_uris + [n["final_raw"] for n in final]
     top_text = "\n".join(top_lines)
     write_file("top30.txt", top_text)
