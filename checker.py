@@ -375,13 +375,18 @@ def _encode_query(items):
         text = str(value).strip()
         if text == "":
             continue
-        # Always percent-encode '+' '/' '=' so URI parsers do not treat
-        # base64 keys as path separators or form-spaces.
+        # Encode '+' '/' '=' so base64 keys and I1 tags stay intact.
         parts.append(key + "=" + quote(text, safe="-_"))
     return "&".join(parts)
 
 
 def awg_conf_to_uri(interface, peer, display_name):
+    """Build one short awg:// share link for Happ.
+
+    Duplicate alias fields and a second wg:// copy previously blew each line
+    past ~6KB; Happ then silently dropped the BS servers from the list.
+    Keep a single awg:// URI with the fields Happ/v2rayN actually read.
+    """
     private_key = interface.get("PrivateKey") or ""
     public_key = peer.get("PublicKey") or ""
     address = interface.get("Address") or ""
@@ -392,33 +397,15 @@ def awg_conf_to_uri(interface, peer, display_name):
     addrs = _cidr_addresses(address)
     if not addrs:
         return None
-    addr_all = ",".join(addrs)
-    addr_v4 = next((item for item in addrs if ":" not in item.split("/", 1)[0]), addrs[0])
-    dns = re.sub(r"\s+", "", interface.get("DNS") or "")
     reserved = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
-    keepalive = peer.get("PersistentKeepalive") or "25"
-    allowed = peer.get("AllowedIPs") or "0.0.0.0/0, ::/0"
-    i1 = interface.get("I1") or ""
-    # Happ is case-sensitive on Android query keys. Include every alias it and
-    # Hiddify/v2rayN are known to read, plus WARP defaults AmneziaWG fills in.
-    happ_query = [
-        ("publicKey", public_key),
+    query = [
         ("publickey", public_key),
-        ("peer_pk", public_key),
-        ("privateKey", private_key),
-        ("pk", private_key),
-        ("localAddress", addr_all),
-        ("local_address", addr_all),
-        ("address", addr_all),
-        ("ip", addr_v4),
+        ("address", ",".join(addrs)),
         ("mtu", interface.get("MTU") or "1280"),
-        ("dns", dns),
-        ("allowedIPs", allowed),
-        ("allowedips", allowed),
+        ("dns", re.sub(r"\s+", "", interface.get("DNS") or "")),
+        ("allowedips", peer.get("AllowedIPs") or "0.0.0.0/0,::/0"),
         ("reserved", reserved),
-        ("keepalive", keepalive),
-        ("persistentKeepalive", keepalive),
-        ("ifid", "0"),
+        ("keepalive", peer.get("PersistentKeepalive") or "25"),
         ("jc", interface.get("Jc")),
         ("jmin", interface.get("Jmin")),
         ("jmax", interface.get("Jmax")),
@@ -430,22 +417,76 @@ def awg_conf_to_uri(interface, peer, display_name):
         ("h2", interface.get("H2")),
         ("h3", interface.get("H3")),
         ("h4", interface.get("H4")),
-        ("i1", i1),
-        ("I1", i1),
+        ("i1", interface.get("I1")),
         ("i2", interface.get("I2")),
         ("i3", interface.get("I3")),
         ("i4", interface.get("I4")),
         ("i5", interface.get("I5")),
         ("presharedkey", peer.get("PresharedKey")),
     ]
-    query_str = _encode_query(happ_query)
+    query_str = _encode_query(query)
     userinfo = quote(private_key, safe="-_")
     fragment = quote(display_name, safe="")
-    authority = host + ":" + str(port)
     return [
-        "awg://" + userinfo + "@" + authority + "/?" + query_str + "#" + fragment,
-        "wg://" + authority + "/?" + query_str + "#" + fragment,
+        "awg://" + userinfo + "@" + host + ":" + str(port) + "?" + query_str + "#" + fragment,
     ]
+
+
+def awg_conf_to_clash(interface, peer, display_name):
+    private_key = interface.get("PrivateKey") or ""
+    public_key = peer.get("PublicKey") or ""
+    address = interface.get("Address") or ""
+    endpoint = peer.get("Endpoint") or ""
+    host, port = split_endpoint(endpoint)
+    addrs = _cidr_addresses(address)
+    if not private_key or not public_key or not host or not port or not addrs:
+        return None
+    ip4 = next((item.split("/", 1)[0] for item in addrs if ":" not in item.split("/", 1)[0]), None)
+    ip6 = next((item.split("/", 1)[0] for item in addrs if ":" in item.split("/", 1)[0]), None)
+    reserved_raw = peer.get("Reserved") or interface.get("Reserved") or "0,0,0"
+    reserved = []
+    for part in reserved_raw.replace("[", "").replace("]", "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            reserved.append(int(part))
+    if len(reserved) != 3:
+        reserved = [0, 0, 0]
+    option = {}
+    for key, src in (
+        ("jc", "Jc"), ("jmin", "Jmin"), ("jmax", "Jmax"),
+        ("s1", "S1"), ("s2", "S2"), ("s3", "S3"), ("s4", "S4"),
+        ("h1", "H1"), ("h2", "H2"), ("h3", "H3"), ("h4", "H4"),
+        ("i1", "I1"), ("i2", "I2"), ("i3", "I3"), ("i4", "I4"), ("i5", "I5"),
+    ):
+        value = interface.get(src)
+        if value is None or str(value).strip() == "":
+            continue
+        if key in ("jc", "jmin", "jmax", "s1", "s2", "s3", "s4", "h1", "h2", "h3", "h4"):
+            try:
+                option[key] = int(value)
+                continue
+            except Exception:
+                pass
+        option[key] = str(value)
+    proxy = {
+        "name": display_name,
+        "type": "wireguard",
+        "server": host,
+        "port": int(port),
+        "private-key": private_key,
+        "public-key": public_key,
+        "udp": True,
+        "mtu": int(interface.get("MTU") or 1280),
+        "reserved": reserved,
+        "allowed-ips": [item.strip() for item in (peer.get("AllowedIPs") or "0.0.0.0/0, ::/0").split(",") if item.strip()],
+    }
+    if ip4:
+        proxy["ip"] = ip4
+    if ip6:
+        proxy["ipv6"] = ip6
+    if option:
+        proxy["amnezia-wg-option"] = option
+    return proxy
 
 
 def load_pinned_awg():
@@ -462,7 +503,8 @@ def load_pinned_awg():
             interface, peer = parse_wg_conf(text)
             display_name = "Белый список | " + (country_display(country) or country)
             uris = awg_conf_to_uri(interface, peer, display_name)
-            if not uris:
+            clash = awg_conf_to_clash(interface, peer, display_name)
+            if not uris or not clash:
                 errors.append("pinned config incomplete: " + filename)
                 continue
             dest = os.path.join(OUT_DIR, filename)
@@ -475,6 +517,7 @@ def load_pinned_awg():
                 "host": host,
                 "port": int(port) if port and str(port).isdigit() else port,
                 "uris": uris,
+                "clash": clash,
             })
             print("INFO: pinned", filename, "->", display_name)
         except Exception as exc:
@@ -834,6 +877,18 @@ def main():
     write_file("top30.txt", top_text)
     b64_text = base64.b64encode((top_text + "\n").encode("utf-8")).decode("ascii")
     write_file("top30.b64.txt", b64_text)
+    # Tiny subscription with only BS/AWG pins — use if the mixed list drops them.
+    write_file("bs.txt", "\n".join(pinned_uris))
+    clash_doc = {
+        "proxies": [item["clash"] for item in pinned],
+        "proxy-groups": [{
+            "name": "Белый список",
+            "type": "select",
+            "proxies": [item["display_name"] for item in pinned],
+        }],
+    }
+    with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
+        yaml.safe_dump(clash_doc, f, allow_unicode=True, sort_keys=False)
 
     report = []
     for item in pinned:
@@ -895,6 +950,8 @@ def main():
         "generated_files": [
             "output/top30.txt",
             "output/top30.b64.txt",
+            "output/bs.txt",
+            "output/whitelist.yaml",
             "output/report.json",
             "output/summary.yaml",
             "output/clash_royale.txt",

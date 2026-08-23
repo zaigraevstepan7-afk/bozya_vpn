@@ -33,14 +33,15 @@ python checker.py
 
 ## Итоговая ссылка на подписку
 
-https://cdn.jsdelivr.net/gh/zaigraevstepan7-afk/bozya_vpn@main/output/top30.txt
-
-Зеркало GitHub (иногда долго кэширует старый файл):
-
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top30.txt
 
-В начале списка всегда идут закреплённые AWG-сервера белого списка
+Только серверы белого списка (если в общей подписке их нет):
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bs.txt
+
+В начале `top30.txt` всегда идут 3 AWG-сервера белого списка
 (Германия, Финляндия, Польша) — без пинга и без сортировки.
+Исходные `.conf` для AmneziaWG лежат в `output/LTE*WARPv2_*.conf`.
 
 ## Расписание
 
