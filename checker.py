@@ -49,12 +49,16 @@ PINNED_AWG_CONFIGS = [
 ]
 
 # Pinned Xray/Happ custom JSON configs. After AWG pins. Always present.
+# Order = list order in the subscription (top first among customs).
 PINNED_CUSTOM_JSON = [
+    ("FastCone_Switzerland.json", "CH", "🇨🇭 Швейцария"),
     ("VIP_LTE_Finland.json", "FI", "🇫🇮 Лютый обход | VIP LTE Финляндия"),
     ("Griffon_France.json", "FR", "🇫🇷 Франция"),
 ]
 
 GRIFFON_SUB_URL = "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc"
+FASTCONE_SUB_URL = "https://sub.fast-cone.com/32e027b8a8074dd41d9afe073fd85a01"
+FASTCONE_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + FASTCONE_SUB_URL
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
@@ -1026,6 +1030,40 @@ def refresh_griffon_france_pin():
         print("WARN: Griffon France refresh failed, keeping previous pin:", str(exc))
 
 
+def refresh_fastcone_switzerland_pin():
+    """Refresh pinned 🇨🇭 Швейцария from FastCone Happ JSON; keep last file on failure."""
+    path = os.path.join(BASE_DIR, "FastCone_Switzerland.json")
+    display = "🇨🇭 Швейцария"
+    try:
+        resp = requests.get(
+            FASTCONE_HAPP_URL,
+            timeout=45,
+            headers={"User-Agent": "Happ/Android", "x-hwid": SUB_HWID},
+            verify=False,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        doc = None
+        if isinstance(data, list):
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                rem = item.get("remarks") or ""
+                if "🇨🇭" in rem or "Швейцария" in rem or "Switzerland" in rem:
+                    doc = dict(item)
+                    break
+        if not doc:
+            print("WARN: FastCone Switzerland node not found, keeping previous pin")
+            return
+        doc["remarks"] = display
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        print("INFO: refreshed FastCone Switzerland pin")
+    except Exception as exc:
+        print("WARN: FastCone Switzerland refresh failed, keeping previous pin:", str(exc))
+
+
 def probe_once(host, port, timeout=TIMEOUT):
     start = time.monotonic()
     try:
@@ -1148,9 +1186,10 @@ def main():
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
     pinned = load_pinned_awg()
+    refresh_fastcone_switzerland_pin()
     refresh_griffon_france_pin()
     pinned_custom = load_pinned_custom()
-    # Order: AWG whitelist, then VIP LTE FI, then Griffon FR.
+    # Order: AWG whitelist, then CH / VIP LTE FI / Griffon FR.
     pinned_all = pinned + pinned_custom
     pinned_keys = set()
     for item in pinned_all:
