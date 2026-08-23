@@ -34,7 +34,12 @@ SOURCES = [
     "https://connliberty.com/connection/subs/dcf2b960-d490-40dd-a18b-1718550f939e",
     "https://akonit.tech/sub/f9afd2d3-3858-403e-bbc9-9a720420c188",
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
+    # Griffon (needs x-hwid). Also used to refresh pinned 🇫🇷 Франция.
+    "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc",
 ]
+
+# Stable device id for panels that require HWID (Happ / Hiddify / Remnawave).
+SUB_HWID = os.environ.get("SUB_HWID", "b7c4e2a1f9d83c5e6a0b1d2e3f4a5b6c")
 
 # Always prepended to the subscription. Not probed and not counted toward TOP_N.
 PINNED_AWG_CONFIGS = [
@@ -43,10 +48,13 @@ PINNED_AWG_CONFIGS = [
     ("LTEpWARPv2_60.conf", "PL"),
 ]
 
-# Pinned Xray/Happ custom JSON configs (e.g. VIP LTE bypass). After AWG pins.
+# Pinned Xray/Happ custom JSON configs. After AWG pins. Always present.
 PINNED_CUSTOM_JSON = [
     ("VIP_LTE_Finland.json", "FI", "🇫🇮 Лютый обход | VIP LTE Финляндия"),
+    ("Griffon_France.json", "FR", "🇫🇷 Франция"),
 ]
+
+GRIFFON_SUB_URL = "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc"
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
@@ -941,17 +949,81 @@ def load_pinned_custom():
 
 def fetch_source(url):
     headers = {
-        "User-Agent": "v2rayN/7.12.4",
+        "User-Agent": "HiddifyNext/2.0",
         "Accept": "text/plain,application/json,*/*",
+        "x-hwid": SUB_HWID,
+        "X-HWID": SUB_HWID,
     }
     try:
-        resp = requests.get(url, timeout=20, headers=headers)
+        resp = requests.get(url, timeout=30, headers=headers)
         resp.raise_for_status()
     except requests.exceptions.SSLError:
-        resp = requests.get(url, timeout=20, headers=headers, verify=False)
+        resp = requests.get(url, timeout=30, headers=headers, verify=False)
         resp.raise_for_status()
     resp.encoding = "utf-8"
     return resp.text
+
+
+def refresh_griffon_france_pin():
+    """Refresh pinned 🇫🇷 Франция from Griffon sub; keep last file on failure."""
+    path = os.path.join(BASE_DIR, "Griffon_France.json")
+    try:
+        text = fetch_source(GRIFFON_SUB_URL)
+        lines = extract_nodes(text)
+        france_uri = None
+        for line in lines:
+            node = parse_node(line)
+            name = (node or {}).get("name") or ""
+            if "#" in line and not name:
+                name = unquote(line.split("#", 1)[1])
+            low = name.lower()
+            if "🇫🇷" in name and ("франц" in low or "france" in low):
+                france_uri = line.strip()
+                break
+        if not france_uri:
+            print("WARN: Griffon France node not found, keeping previous pin")
+            return
+        display = "🇫🇷 Франция"
+        # Prefer full custom JSON via Happ proxy when available; else URI→CUSTOM.
+        doc = None
+        try:
+            proxy = "https://p.kfwl.lol/ua=happ/os=android/" + GRIFFON_SUB_URL
+            resp = requests.get(
+                proxy,
+                timeout=45,
+                headers={"User-Agent": "Happ/Android", "x-hwid": SUB_HWID},
+                verify=False,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                for item in data:
+                    if not isinstance(item, dict):
+                        continue
+                    rem = item.get("remarks") or ""
+                    if "🇫🇷" in rem and "Франция" in rem:
+                        doc = dict(item)
+                        break
+        except Exception as exc:
+            print("WARN: Griffon Happ-JSON refresh failed:", str(exc))
+        if doc is None:
+            doc = share_uri_to_pattng_json(france_uri, display)
+        if not doc:
+            print("WARN: could not build Griffon France config, keeping previous pin")
+            return
+        doc["remarks"] = display
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        uri_path = os.path.join(BASE_DIR, "Griffon_France.uri")
+        renamed = rename_node(parse_node(france_uri), display) if parse_node(france_uri) else france_uri
+        # rename_node needs scheme; fallback to raw with new fragment
+        if parse_node(france_uri):
+            with open(uri_path, "w", encoding="utf-8") as f:
+                f.write(rename_node(parse_node(france_uri), display) + "\n")
+        print("INFO: refreshed Griffon France pin")
+    except Exception as exc:
+        print("WARN: Griffon France refresh failed, keeping previous pin:", str(exc))
 
 
 def probe_once(host, port, timeout=TIMEOUT):
@@ -1076,9 +1148,17 @@ def main():
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
     pinned = load_pinned_awg()
+    refresh_griffon_france_pin()
     pinned_custom = load_pinned_custom()
-    # Order: AWG whitelist first, then VIP LTE / custom bypass pins.
+    # Order: AWG whitelist, then VIP LTE FI, then Griffon FR.
     pinned_all = pinned + pinned_custom
+    pinned_keys = set()
+    for item in pinned_all:
+        if item.get("host") and item.get("port"):
+            pinned_keys.add(("vless", item["host"], int(item["port"]) if str(item["port"]).isdigit() else item["port"]))
+            pinned_keys.add((item.get("kind") or "awg", item["host"], item["port"]))
+            pinned_keys.add(("wireguard", item["host"], item["port"]))
+            pinned_keys.add(("any", item["host"], int(item["port"]) if str(item["port"]).isdigit() else item["port"]))
 
     per_source = {}
     for url in SOURCES:
@@ -1103,6 +1183,8 @@ def main():
                 continue
             key = (node["scheme"], node["host"], node["port"])
             if key in seen:
+                continue
+            if ("any", node["host"], node["port"]) in pinned_keys or key in pinned_keys:
                 continue
             if is_ru(node["name"]):
                 continue
