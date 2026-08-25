@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import base64
+import glob
 import json
 import os
 import re
@@ -10,7 +11,7 @@ import sys
 import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote, unquote, urlparse
 
 import requests
@@ -36,20 +37,23 @@ SOURCES = [
     "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
     # Griffon (needs x-hwid). Also used to refresh pinned 🇫🇷 Франция.
     "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc",
+    # Nebula Curse: country nodes + LTE БС. Hiddify UA returns vless:// lines.
+    "https://sub.nebulacurse.space/W83--xXdonEXYRBB/",
 ]
 
 # Stable device id for panels that require HWID (Happ / Hiddify / Remnawave).
 SUB_HWID = os.environ.get("SUB_HWID", "b7c4e2a1f9d83c5e6a0b1d2e3f4a5b6c")
 
 # Always prepended to the subscription. Not probed and not counted toward TOP_N.
+# Cloudflare/AmneziaWG WARP — keep even if TCP ping fails.
 PINNED_AWG_CONFIGS = [
     ("LTEdWARPv2_99.conf", "DE"),
     ("LTEfWARPv2_40.conf", "FI"),
     ("LTEpWARPv2_60.conf", "PL"),
 ]
 
-# Pinned Xray/Happ custom JSON configs. After AWG pins. Always present.
-# Order = list order in the subscription (top first among customs).
+# Pinned Xray/Happ custom JSON configs. After AWG pins. Dead ones (TCP fail) are dropped,
+# except AWG/Cloudflare above.
 PINNED_CUSTOM_JSON = [
     ("FastCone_Switzerland.json", "CH", "🇨🇭 Швейцария"),
     ("VIP_LTE_Finland.json", "FI", "🇫🇮 Лютый обход | VIP LTE Финляндия"),
@@ -59,10 +63,13 @@ PINNED_CUSTOM_JSON = [
 GRIFFON_SUB_URL = "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc"
 FASTCONE_SUB_URL = "https://sub.fast-cone.com/32e027b8a8074dd41d9afe073fd85a01"
 FASTCONE_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + FASTCONE_SUB_URL
+NEBULACURSE_SUB_URL = "https://sub.nebulacurse.space/W83--xXdonEXYRBB/"
+NEBULACURSE_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + NEBULACURSE_SUB_URL
+MIN_NEBULA_BS = 5
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
-MAX_TEST_PER_SOURCE = 40
+MAX_TEST_PER_SOURCE = 80
 MAX_PER_SOURCE_FINAL = 15
 MIN_SUCCESS = 0.8
 ATTEMPTS = 5
@@ -902,52 +909,115 @@ def custom_json_to_vless_uri(doc, display_name):
     return "vless://" + uuid + "@" + host + ":" + str(port) + "?" + query + "#" + fragment
 
 
+def custom_vless_host_port(doc):
+    ob = next((o for o in (doc.get("outbounds") or []) if isinstance(o, dict) and o.get("protocol") == "vless"), {})
+    vnext = ((ob.get("settings") or {}).get("vnext") or [{}])[0]
+    return vnext.get("address"), vnext.get("port")
+
+
+def tcp_alive(host, port, attempts=3, timeout=2.5):
+    if not host or not port:
+        return False
+    ok = 0
+    for _ in range(attempts):
+        success, _ms = probe_once(host, int(port), timeout=timeout)
+        if success:
+            ok += 1
+    return ok >= 2
+
+
+def _write_json(path, doc):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def _pin_entry_from_doc(filename, country, display_name, doc):
+    doc = dict(doc)
+    doc["remarks"] = display_name
+    uri = custom_json_to_vless_uri(doc, display_name)
+    dest = os.path.join(OUT_DIR, filename)
+    _write_json(dest, doc)
+    host, port = custom_vless_host_port(doc)
+    return {
+        "file": filename,
+        "display_name": display_name,
+        "country": country,
+        "host": host,
+        "port": port,
+        "uris": [uri] if uri else [],
+        "clash": None,
+        "pattng": doc,
+        "kind": "custom",
+    }
+
+
 def load_pinned_custom():
-    """Load pinned CUSTOM JSON profiles (VIP LTE etc.)."""
+    """Load pinned CUSTOM JSON. Drop non-Cloudflare pins whose TCP probe fails."""
     pinned = []
-    errors = []
     for filename, country, display_name in PINNED_CUSTOM_JSON:
         path = os.path.join(BASE_DIR, filename)
         if not os.path.isfile(path):
-            errors.append("pinned custom missing: " + path)
+            print("WARN: pinned custom missing, skip:", filename)
             continue
         try:
             with open(path, "r", encoding="utf-8") as f:
                 doc = json.load(f)
             if not isinstance(doc, dict):
-                errors.append("pinned custom not an object: " + filename)
+                print("WARN: pinned custom not an object, skip:", filename)
                 continue
-            doc = dict(doc)
-            doc["remarks"] = display_name
-            uri = custom_json_to_vless_uri(doc, display_name)
-            if not uri:
-                errors.append("pinned custom has no vless outbound: " + filename)
+            host, port = custom_vless_host_port(doc)
+            if not tcp_alive(host, port):
+                print("WARN: drop dead pinned custom", filename, host, port)
                 continue
-            dest = os.path.join(OUT_DIR, filename)
-            with open(dest, "w", encoding="utf-8") as f:
-                json.dump(doc, f, ensure_ascii=False, indent=2)
-                f.write("\n")
-            # host/port for report
-            ob = next((o for o in (doc.get("outbounds") or []) if isinstance(o, dict) and o.get("protocol") == "vless"), {})
-            vnext = ((ob.get("settings") or {}).get("vnext") or [{}])[0]
+            entry = _pin_entry_from_doc(filename, country, display_name, doc)
+            pinned.append(entry)
+            print("INFO: pinned custom", filename, "->", display_name)
+        except Exception as exc:
+            print("WARN: pinned custom failed:", filename, str(exc))
+
+    nebula_auto = os.path.join(BASE_DIR, "Nebula_Auto.json")
+    if os.path.isfile(nebula_auto):
+        try:
+            with open(nebula_auto, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+            remarks = (doc.get("remarks") if isinstance(doc, dict) else None) or "🇪🇺 Автовыбор"
+            dest = os.path.join(OUT_DIR, "Nebula_Auto.json")
+            _write_json(dest, doc)
+            host, port = custom_vless_host_port(doc)
             pinned.append({
-                "file": filename,
-                "display_name": display_name,
-                "country": country,
-                "host": vnext.get("address"),
-                "port": vnext.get("port"),
-                "uris": [uri],
+                "file": "Nebula_Auto.json",
+                "display_name": remarks,
+                "country": "EU",
+                "host": host,
+                "port": port,
+                "uris": [],
                 "clash": None,
                 "pattng": doc,
                 "kind": "custom",
             })
-            print("INFO: pinned custom", filename, "->", display_name)
+            print("INFO: pinned custom Nebula_Auto.json ->", remarks)
         except Exception as exc:
-            errors.append("pinned custom failed: " + filename + " " + str(exc))
-    if errors:
-        raise RuntimeError("pinned custom configs must always be present: " + "; ".join(errors))
-    if len(pinned) != len(PINNED_CUSTOM_JSON):
-        raise RuntimeError("pinned custom configs must always be present")
+            print("WARN: Nebula_Auto.json failed:", str(exc))
+
+    for path in sorted(glob.glob(os.path.join(BASE_DIR, "Nebula_BS_*.json"))):
+        filename = os.path.basename(path)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+            if not isinstance(doc, dict):
+                continue
+            remarks = doc.get("remarks") or filename
+            host, port = custom_vless_host_port(doc)
+            if not tcp_alive(host, port):
+                print("WARN: drop dead nebula BS", filename, host, port)
+                continue
+            country = flag_to_country(remarks) or "EU"
+            entry = _pin_entry_from_doc(filename, country, remarks, doc)
+            pinned.append(entry)
+            print("INFO: pinned custom", filename, "->", remarks)
+        except Exception as exc:
+            print("WARN: nebula BS failed:", filename, str(exc))
     return pinned
 
 
@@ -1062,6 +1132,211 @@ def refresh_fastcone_switzerland_pin():
         print("INFO: refreshed FastCone Switzerland pin")
     except Exception as exc:
         print("WARN: FastCone Switzerland refresh failed, keeping previous pin:", str(exc))
+
+
+def _happ_vless_outbound(doc):
+    for o in doc.get("outbounds") or []:
+        if isinstance(o, dict) and o.get("protocol") == "vless":
+            return o
+    return None
+
+
+def _clone_proxy_outbound(doc, tag):
+    ob = _happ_vless_outbound(doc)
+    if not ob:
+        return None
+    copy = json.loads(json.dumps(ob))
+    copy["tag"] = tag
+    return copy
+
+
+def refresh_nebulacurse_pins(token=""):
+    """Pin Автовыбор + at least 5 non-RU LTE БС from Nebula Curse. Refresh each run."""
+    for path in glob.glob(os.path.join(BASE_DIR, "Nebula_BS_*.json")):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+    auto_path = os.path.join(BASE_DIR, "Nebula_Auto.json")
+    try:
+        resp = requests.get(
+            NEBULACURSE_HAPP_URL,
+            timeout=45,
+            headers={"User-Agent": "Happ/Android", "x-hwid": SUB_HWID},
+            verify=False,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not isinstance(data, list):
+            print("WARN: Nebula Curse JSON is not a list, keeping previous pins")
+            return
+    except Exception as exc:
+        print("WARN: Nebula Curse fetch failed, keeping previous pins:", str(exc))
+        return
+
+    jobs = []
+    for i, item in enumerate(data):
+        if not isinstance(item, dict):
+            continue
+        rem = item.get("remarks") or ""
+        host, port = custom_vless_host_port(item)
+        if not host or not port:
+            continue
+        jobs.append((i, rem, host, int(port), item))
+
+    probe_stats = {"ok": 0, "fail": 0}
+    results = []
+
+    def one(job):
+        i, rem, host, port, item = job
+        ok = 0
+        samples = []
+        ip = None
+        try:
+            ip = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)[0][4][0]
+        except Exception:
+            return i, rem, host, port, item, 0, None, None
+        for _ in range(3):
+            success, ms = probe_once(host, port, timeout=2.5)
+            if success:
+                ok += 1
+                samples.append(ms)
+        med = statistics.median(samples) if samples else None
+        return i, rem, host, port, item, ok, med, ip
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        for row in pool.map(one, jobs):
+            i, rem, host, port, item, ok, med, ip = row
+            alive = ok >= 2
+            probe_stats["ok" if alive else "fail"] += 1
+            print(
+                "INFO: nebula probe",
+                "OK" if alive else "FAIL",
+                rem,
+                host + ":" + str(port),
+                "med:" + (str(round(med, 1)) if med is not None else "-"),
+            )
+            results.append({
+                "i": i, "rem": rem, "host": host, "port": port, "item": item,
+                "ok": alive, "med": med, "ip": ip,
+            })
+
+    print(
+        "INFO: nebula ping: working",
+        probe_stats["ok"],
+        "dead",
+        probe_stats["fail"],
+        "total",
+        probe_stats["ok"] + probe_stats["fail"],
+    )
+
+    country_nodes = []
+    bs_nodes = []
+    seen_host = set()
+    for row in results:
+        rem = row["rem"]
+        if not row["ok"]:
+            continue
+        if is_ru(rem) or "🇷🇺" in rem:
+            continue
+        cc = None
+        if row["ip"]:
+            cc = lookup_country(row["ip"], token)
+        if cc == "RU":
+            print("INFO: skip nebula RU IP", rem, row["ip"])
+            continue
+        row["country"] = cc
+        key = (row["host"], row["port"])
+        if "БС" in rem or rem.startswith("🇪🇺LTE-"):
+            if key in seen_host:
+                continue
+            seen_host.add(key)
+            bs_nodes.append(row)
+        elif "мост" in rem.lower() and "rev.2" not in rem.lower() and row["port"] == 596:
+            continue
+        else:
+            country_nodes.append(row)
+
+    bs_nodes.sort(key=lambda r: r["med"] if r["med"] is not None else 9999)
+    if len(bs_nodes) < MIN_NEBULA_BS:
+        print("WARN: only", len(bs_nodes), "unique non-RU nebula BS alive, need", MIN_NEBULA_BS)
+    picked_bs = bs_nodes[:8]
+    if len(picked_bs) < MIN_NEBULA_BS:
+        print("WARN: nebula BS pins below minimum")
+    for idx, row in enumerate(picked_bs, start=1):
+        doc = dict(row["item"])
+        num = None
+        m = re.search(r"LTE-(\d+)", row["rem"])
+        if m:
+            num = m.group(1)
+        geo = country_display(row.get("country")) if row.get("country") else "🇪🇺 Европа"
+        display = "Белый список | LTE-" + (num or str(idx)) + " · " + geo
+        doc["remarks"] = display
+        path = os.path.join(BASE_DIR, "Nebula_BS_%02d.json" % idx)
+        _write_json(path, doc)
+        print("INFO: nebula BS pin", display, row["host"] + ":" + str(row["port"]), "ms", round(row["med"] or 0, 1))
+
+    # Unique country endpoints for auto-select (skip RU, skip dead).
+    auto_members = []
+    auto_seen = set()
+    for row in country_nodes:
+        if "LTE-" in row["rem"] or "БС" in row["rem"]:
+            continue
+        key = (row["host"], row["port"])
+        if key in auto_seen:
+            continue
+        auto_seen.add(key)
+        auto_members.append(row)
+    auto_members.sort(key=lambda r: r["med"] if r["med"] is not None else 9999)
+    auto_members = auto_members[:8]
+    if auto_members:
+        outbounds = []
+        tags = []
+        for i, row in enumerate(auto_members, start=1):
+            tag = "auto-" + str(i)
+            ob = _clone_proxy_outbound(row["item"], tag)
+            if not ob:
+                continue
+            outbounds.append(ob)
+            tags.append(tag)
+        if tags:
+            outbounds.append({"tag": "direct", "protocol": "freedom"})
+            outbounds.append({"tag": "block", "protocol": "blackhole"})
+            auto_doc = {
+                "remarks": "🇪🇺 Автовыбор",
+                "log": {"loglevel": "warning"},
+                "inbounds": [{
+                    "tag": "socks",
+                    "port": 10808,
+                    "listen": "127.0.0.1",
+                    "protocol": "socks",
+                    "settings": {"udp": True},
+                }],
+                "outbounds": outbounds,
+                "routing": {
+                    "domainStrategy": "AsIs",
+                    "balancers": [{
+                        "tag": "auto",
+                        "selector": tags,
+                        "strategy": {"type": "leastPing"},
+                    }],
+                    "rules": [{
+                        "type": "field",
+                        "network": "tcp,udp",
+                        "balancerTag": "auto",
+                    }],
+                },
+                "observatory": {
+                    "subjectSelector": tags,
+                    "probeUrl": "https://www.gstatic.com/generate_204",
+                    "probeInterval": "1m",
+                    "enableConcurrency": True,
+                },
+            }
+            _write_json(auto_path, auto_doc)
+            print("INFO: nebula auto-select members", len(tags), [r["rem"] for r in auto_members[:len(tags)]])
+    else:
+        print("WARN: no nebula country nodes for auto-select")
 
 
 def probe_once(host, port, timeout=TIMEOUT):
@@ -1188,8 +1463,9 @@ def main():
     pinned = load_pinned_awg()
     refresh_fastcone_switzerland_pin()
     refresh_griffon_france_pin()
+    refresh_nebulacurse_pins(token)
     pinned_custom = load_pinned_custom()
-    # Order: AWG whitelist, then CH / VIP LTE FI / Griffon FR.
+    # Order: AWG whitelist, then healthy custom pins (CH / VIP FI / FR / auto / nebula BS).
     pinned_all = pinned + pinned_custom
     pinned_keys = set()
     for item in pinned_all:

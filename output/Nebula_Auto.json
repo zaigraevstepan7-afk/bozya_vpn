@@ -1,0 +1,186 @@
+{
+  "remarks": "🇪🇺 Автовыбор",
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "socks",
+      "port": 10808,
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": {
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "auto-1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "node11.nebulacurse.space",
+            "port": 443,
+            "users": [
+              {
+                "id": "073758f2-9669-0001-9541-b8656bde49a2",
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "tcpSettings": {},
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "node11.nebulacurse.space",
+          "publicKey": "V4Eyy99o1znimfkIFx77SCfkKZ-b9tT8eIAX64gJSyc",
+          "shortId": "da4fcc617aa20b45",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "auto-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "node13.nebulacurse.space",
+            "port": 443,
+            "users": [
+              {
+                "id": "073758f2-9669-0001-9541-b8656bde49a2",
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "tcpSettings": {},
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "node13.nebulacurse.space",
+          "publicKey": "V4Eyy99o1znimfkIFx77SCfkKZ-b9tT8eIAX64gJSyc",
+          "shortId": "da4fcc617aa20b45",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "auto-3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "node14.nebulacurse.space",
+            "port": 443,
+            "users": [
+              {
+                "id": "073758f2-9669-0001-9541-b8656bde49a2",
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "tcpSettings": {},
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "node14.nebulacurse.space",
+          "publicKey": "V4Eyy99o1znimfkIFx77SCfkKZ-b9tT8eIAX64gJSyc",
+          "shortId": "da4fcc617aa20b45",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "auto-4",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "node1.nebulacurse.space",
+            "port": 443,
+            "users": [
+              {
+                "id": "073758f2-9669-0001-9541-b8656bde49a2",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "grpcSettings": {
+          "serviceName": null,
+          "authority": "node1.nebulacurse.space",
+          "mode": false
+        },
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "node1.nebulacurse.space",
+          "publicKey": "wGPdcHBZQD0Qhlf32ZKRRiUSbk_ndjcDnQxSG84X4HA",
+          "shortId": "ea57b80afd90326b",
+          "fingerprint": "firefox"
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "balancers": [
+      {
+        "tag": "auto",
+        "selector": [
+          "auto-1",
+          "auto-2",
+          "auto-3",
+          "auto-4"
+        ],
+        "strategy": {
+          "type": "leastPing"
+        }
+      }
+    ],
+    "rules": [
+      {
+        "type": "field",
+        "network": "tcp,udp",
+        "balancerTag": "auto"
+      }
+    ]
+  },
+  "observatory": {
+    "subjectSelector": [
+      "auto-1",
+      "auto-2",
+      "auto-3",
+      "auto-4"
+    ],
+    "probeUrl": "https://www.gstatic.com/generate_204",
+    "probeInterval": "1m",
+    "enableConcurrency": true
+  }
+}
