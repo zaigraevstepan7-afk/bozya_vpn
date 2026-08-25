@@ -48,14 +48,16 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
 В начале подписки всегда:
-- 3 сервера белого списка (`Белый список | 🇩🇪/🇫🇮/🇵🇱`)
-- `🇨🇭 Швейцария` (FastCone, обновляется при каждом прогоне)
-- `🇫🇮 Лютый обход | VIP LTE Финляндия`
-- `🇫🇷 Франция` (из Griffon, обновляется при каждом прогоне)
-(без пинга и без сортировки — есть даже если топ пустой).
+- 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
+- живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются)
+- `🇪🇺 Автовыбор` (leastPing по живым DE/NL/TH из Nebula Curse)
+- минимум 5 БС из Nebula Curse не из России (`Белый список | LTE-N · страна`)
 
-В автопарсер также входит источник:
-`https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (с HWID).
+Источники автопарсера:
+- Griffon `https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (HWID)
+- Nebula Curse `https://sub.nebulacurse.space/W83--xXdonEXYRBB/`
+
+GitHub Actions обновляет подписку каждые 4 часа.
 
 Happ/Xray не умеют AmneziaWG 2.0. PattNG получает маскировку через Finalmask.
 Для полного AWG импортируй `output/LTE*WARPv2_*.conf` в AmneziaWG.
