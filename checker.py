@@ -66,6 +66,8 @@ FASTCONE_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + FASTCONE_SUB_URL
 NEBULACURSE_SUB_URL = "https://sub.nebulacurse.space/W83--xXdonEXYRBB/"
 NEBULACURSE_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + NEBULACURSE_SUB_URL
 MIN_NEBULA_BS = 5
+ADDSUB_SUB_URL = "https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF"
+ADDSUB_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + ADDSUB_SUB_URL
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
@@ -1018,6 +1020,51 @@ def load_pinned_custom():
             print("INFO: pinned custom", filename, "->", remarks)
         except Exception as exc:
             print("WARN: nebula BS failed:", filename, str(exc))
+
+    addsub_auto = os.path.join(BASE_DIR, "AddSub_Auto.json")
+    if os.path.isfile(addsub_auto):
+        try:
+            with open(addsub_auto, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+            remarks = (doc.get("remarks") if isinstance(doc, dict) else None) or "🇪🇺 Автовыбор + Невидимый VPN"
+            dest = os.path.join(OUT_DIR, "AddSub_Auto.json")
+            _write_json(dest, doc)
+            host, port = custom_vless_host_port(doc)
+            pinned.append({
+                "file": "AddSub_Auto.json",
+                "display_name": remarks,
+                "country": "EU",
+                "host": host,
+                "port": port,
+                "uris": [],
+                "clash": None,
+                "pattng": doc,
+                "kind": "custom",
+            })
+            print("INFO: pinned custom AddSub_Auto.json ->", remarks)
+        except Exception as exc:
+            print("WARN: AddSub_Auto.json failed:", str(exc))
+
+    for path in sorted(glob.glob(os.path.join(BASE_DIR, "AddSub_*.json"))):
+        filename = os.path.basename(path)
+        if filename == "AddSub_Auto.json":
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                doc = json.load(f)
+            if not isinstance(doc, dict):
+                continue
+            remarks = doc.get("remarks") or filename
+            host, port = custom_vless_host_port(doc)
+            if host and port and not tcp_alive(host, port):
+                print("WARN: drop dead addsub", filename, host, port)
+                continue
+            country = flag_to_country(remarks) or "EU"
+            entry = _pin_entry_from_doc(filename, country, remarks, doc)
+            pinned.append(entry)
+            print("INFO: pinned custom", filename, "->", remarks)
+        except Exception as exc:
+            print("WARN: addsub pin failed:", filename, str(exc))
     return pinned
 
 
@@ -1152,11 +1199,6 @@ def _clone_proxy_outbound(doc, tag):
 
 def refresh_nebulacurse_pins(token=""):
     """Pin Автовыбор + at least 5 non-RU LTE БС from Nebula Curse. Refresh each run."""
-    for path in glob.glob(os.path.join(BASE_DIR, "Nebula_BS_*.json")):
-        try:
-            os.remove(path)
-        except Exception:
-            pass
     auto_path = os.path.join(BASE_DIR, "Nebula_Auto.json")
     try:
         resp = requests.get(
@@ -1339,6 +1381,94 @@ def refresh_nebulacurse_pins(token=""):
         print("WARN: no nebula country nodes for auto-select")
 
 
+def _vless_outbound_host(ob):
+    if not isinstance(ob, dict) or ob.get("protocol") != "vless":
+        return None
+    vnext = ((ob.get("settings") or {}).get("vnext") or [{}])[0]
+    return vnext.get("address")
+
+
+def _is_germany_name(name):
+    text = name or ""
+    low = text.lower()
+    return "🇩🇪" in text or "германия" in low or "germany" in low
+
+
+def refresh_addsub_pins():
+    """Pin all addsub.site servers except Germany. Strip DE hosts from auto-select."""
+    for path in glob.glob(os.path.join(BASE_DIR, "AddSub_*.json")):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+    try:
+        resp = requests.get(
+            ADDSUB_HAPP_URL,
+            timeout=45,
+            headers={"User-Agent": "Happ/Android", "x-hwid": SUB_HWID},
+            verify=False,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not isinstance(data, list):
+            print("WARN: addsub JSON is not a list, keeping previous pins")
+            return
+    except Exception as exc:
+        print("WARN: addsub fetch failed, keeping previous pins:", str(exc))
+        return
+
+    de_hosts = set()
+    kept = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        rem = item.get("remarks") or ""
+        if _is_germany_name(rem):
+            host, _port = custom_vless_host_port(item)
+            if host:
+                de_hosts.add(host)
+            print("INFO: skip addsub Germany", rem)
+            continue
+        kept.append(item)
+    if not de_hosts:
+        de_hosts.update({"144.31.40.96"})
+
+    idx = 1
+    for item in kept:
+        rem = item.get("remarks") or ""
+        doc = json.loads(json.dumps(item))
+        is_auto = "автовыбор" in rem.lower()
+        if is_auto:
+            outs = []
+            for ob in doc.get("outbounds") or []:
+                host = _vless_outbound_host(ob)
+                if host and host in de_hosts:
+                    print("INFO: strip DE outbound from addsub auto", host, ob.get("tag"))
+                    continue
+                outs.append(ob)
+            doc["outbounds"] = outs
+            tags = [o.get("tag") for o in outs if isinstance(o, dict) and o.get("protocol") == "vless" and o.get("tag")]
+            routing = doc.setdefault("routing", {})
+            bals = routing.get("balancers") or []
+            if bals and tags:
+                bals[0]["selector"] = [tags[0]] if tags else ["proxy"]
+                bals[0]["fallbackTag"] = tags[0] if tags else "proxy"
+            burst = doc.get("burstObservatory") or {}
+            if burst.get("subjectSelector") is not None:
+                burst["subjectSelector"] = tags
+            doc["remarks"] = "🇪🇺 Автовыбор + Невидимый VPN"
+            path = os.path.join(BASE_DIR, "AddSub_Auto.json")
+            _write_json(path, doc)
+            print("INFO: addsub auto pin", doc["remarks"], "vless", len(tags))
+            continue
+        path = os.path.join(BASE_DIR, "AddSub_%02d.json" % idx)
+        _write_json(path, doc)
+        print("INFO: addsub pin", rem)
+        idx += 1
+    if idx == 1 and not os.path.isfile(os.path.join(BASE_DIR, "AddSub_Auto.json")):
+        print("WARN: addsub produced no pins")
+
+
 def probe_once(host, port, timeout=TIMEOUT):
     start = time.monotonic()
     try:
@@ -1464,6 +1594,7 @@ def main():
     refresh_fastcone_switzerland_pin()
     refresh_griffon_france_pin()
     refresh_nebulacurse_pins(token)
+    refresh_addsub_pins()
     pinned_custom = load_pinned_custom()
     # Order: AWG whitelist, then healthy custom pins (CH / VIP FI / FR / auto / nebula BS).
     pinned_all = pinned + pinned_custom
