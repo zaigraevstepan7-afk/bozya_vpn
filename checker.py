@@ -7,10 +7,13 @@ import re
 import shutil
 import socket
 import statistics
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote, unquote, urlparse
 
@@ -52,8 +55,8 @@ PINNED_AWG_CONFIGS = [
     ("LTEpWARPv2_60.conf", "PL"),
 ]
 
-# Pinned Xray/Happ custom JSON configs. After AWG pins. Dead ones (TCP fail) are dropped,
-# except AWG/Cloudflare above.
+# Pinned Xray/Happ custom JSON configs. After AWG pins. Dead ones (HTTP-through-proxy
+# fail) are dropped. Only the 3 Cloudflare AWG pins above are kept unconditionally.
 PINNED_CUSTOM_JSON = [
     ("FastCone_Switzerland.json", "CH", "🇨🇭 Швейцария"),
     ("VIP_LTE_Finland.json", "FI", "🇫🇮 Лютый обход | VIP LTE Финляндия"),
@@ -82,6 +85,17 @@ MAX_JITTER_MS = 35.0
 MAX_WORST_MS = 300.0
 PROBE_WORKERS = 16
 REPROBE_TOP = 60
+HTTP_PROBE_WORKERS = 5
+HTTP_PROBE_TIMEOUT = 8
+HTTP_PROBE_MAX = 160
+HTTP_PROBE_PER_SOURCE = 30
+XRAY_ZIP_URL = "https://github.com/XTLS/Xray-core/releases/download/v26.7.11/Xray-linux-64.zip"
+HTTP_PROBE_URLS = [
+    "https://www.gstatic.com/generate_204",
+    "https://cp.cloudflare.com/generate_204",
+]
+PROXY_PROTOCOLS = ("vless", "vmess", "trojan", "shadowsocks", "hysteria2")
+JUNK_HOSTS = {"0.0.0.0", "127.0.0.1", "::", "::1", "localhost"}
 
 SCHEMES = ("vless://", "vmess://", "trojan://", "ss://", "hysteria2://", "hy2://")
 GAME_GEO = ["NL", "DE", "PL", "CZ", "RO", "FI", "SE", "SG", "JP", "US"]
@@ -928,6 +942,254 @@ def tcp_alive(host, port, attempts=3, timeout=2.5):
     return ok >= 2
 
 
+_XRAY_BIN = None
+_XRAY_FAILED = False
+_XRAY_PORT_LOCK = threading.Lock()
+_XRAY_NEXT_PORT = 21000
+_HTTP_CACHE = {}
+_HTTP_CACHE_LOCK = threading.Lock()
+
+
+def _junk_endpoint(host, port):
+    if not host or str(host).strip().lower() in JUNK_HOSTS:
+        return True
+    try:
+        p = int(port)
+    except Exception:
+        return True
+    return p < 2 or p > 65535
+
+
+def _outbound_host_port(ob):
+    if not isinstance(ob, dict):
+        return None, None
+    settings = ob.get("settings") or {}
+    vnext = (settings.get("vnext") or [None])[0] or {}
+    if vnext.get("address"):
+        return vnext.get("address"), vnext.get("port")
+    server = (settings.get("servers") or [None])[0] or {}
+    if isinstance(server, dict) and server.get("address"):
+        return server.get("address"), server.get("port")
+    peer = (settings.get("peers") or [None])[0] or {}
+    endpoint = peer.get("endpoint") or ""
+    if ":" in str(endpoint):
+        host, port = str(endpoint).rsplit(":", 1)
+        return host, port
+    return None, None
+
+
+def _outbound_fingerprint(ob):
+    proto = ob.get("protocol")
+    host, port = _outbound_host_port(ob)
+    settings = ob.get("settings") or {}
+    vnext = (settings.get("vnext") or [{}])[0] or {}
+    user = (vnext.get("users") or [{}])[0] or {}
+    server = (settings.get("servers") or [{}])[0] or {}
+    uid = user.get("id") or server.get("password") or ""
+    stream = ob.get("streamSettings") or {}
+    return (proto, host, port, uid, stream.get("network"), stream.get("security"))
+
+
+def _is_proxy_outbound(ob):
+    return isinstance(ob, dict) and ob.get("protocol") in PROXY_PROTOCOLS
+
+
+def _next_socks_port():
+    global _XRAY_NEXT_PORT
+    with _XRAY_PORT_LOCK:
+        port = _XRAY_NEXT_PORT
+        _XRAY_NEXT_PORT += 1
+        return port
+
+
+def ensure_xray():
+    """Download Xray-core once per run for real HTTP-through-proxy checks."""
+    global _XRAY_BIN, _XRAY_FAILED
+    if _XRAY_BIN:
+        return _XRAY_BIN
+    if _XRAY_FAILED:
+        return None
+    dest_dir = os.path.join(tempfile.gettempdir(), "xray-core")
+    dest = os.path.join(dest_dir, "xray")
+    if os.path.isfile(dest) and os.access(dest, os.X_OK):
+        _XRAY_BIN = dest
+        return dest
+    os.makedirs(dest_dir, exist_ok=True)
+    zip_path = os.path.join(dest_dir, "xray.zip")
+    last_err = None
+    for attempt in range(3):
+        try:
+            resp = requests.get(XRAY_ZIP_URL, timeout=60, stream=True)
+            resp.raise_for_status()
+            with open(zip_path, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 256):
+                    if chunk:
+                        f.write(chunk)
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extract("xray", dest_dir)
+            os.chmod(dest, 0o755)
+            _XRAY_BIN = dest
+            print("INFO: xray ready", dest)
+            return dest
+        except Exception as exc:
+            last_err = exc
+            time.sleep(2 ** attempt)
+    _XRAY_FAILED = True
+    print("WARN: xray download failed, HTTP probe disabled:", last_err)
+    return None
+
+
+def _curl_via_socks(port, url, timeout=HTTP_PROBE_TIMEOUT):
+    try:
+        proc = subprocess.run(
+            [
+                "curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+                "--max-time", str(int(timeout)),
+                "--connect-timeout", "4",
+                "--socks5-hostname", "127.0.0.1:%d" % port,
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout + 4,
+        )
+        return (proc.stdout or "").strip()
+    except Exception:
+        return "000"
+
+
+def _xray_run_http(doc, timeout=HTTP_PROBE_TIMEOUT):
+    """Start Xray with a temp socks inbound and fetch a generate_204 URL."""
+    xray = ensure_xray()
+    if not xray:
+        return False
+    port = _next_socks_port()
+    probe_doc = json.loads(json.dumps(doc))
+    probe_doc["log"] = {"loglevel": "error"}
+    probe_doc["inbounds"] = [{
+        "tag": "socks",
+        "port": port,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {"udp": True, "auth": "noauth"},
+    }]
+    fd, path = tempfile.mkstemp(prefix="xray-probe-", suffix=".json")
+    os.close(fd)
+    proc = None
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(probe_doc, f)
+        proc = subprocess.Popen(
+            [xray, "run", "-c", path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.45)
+        if proc.poll() is not None:
+            return False
+        for url in HTTP_PROBE_URLS:
+            code = _curl_via_socks(port, url, timeout=timeout)
+            if code in ("204", "200", "301", "302"):
+                return True
+        return False
+    except Exception:
+        return False
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+
+
+def xray_outbound_http_alive(ob):
+    """True if this proxy outbound can fetch HTTP through Xray."""
+    if not _is_proxy_outbound(ob):
+        return False
+    host, port = _outbound_host_port(ob)
+    if _junk_endpoint(host, port):
+        return False
+    key = _outbound_fingerprint(ob)
+    with _HTTP_CACHE_LOCK:
+        if key in _HTTP_CACHE:
+            return _HTTP_CACHE[key]
+    copy = json.loads(json.dumps(ob))
+    copy["tag"] = "proxy"
+    mini = _pattng_shell("probe", copy)
+    ok = _xray_run_http(mini)
+    with _HTTP_CACHE_LOCK:
+        _HTTP_CACHE[key] = ok
+    return ok
+
+
+def xray_http_alive(doc):
+    """True if the custom config can fetch HTTP. Uses TCP fallback if Xray missing."""
+    if not isinstance(doc, dict):
+        return False
+    proxies = [o for o in (doc.get("outbounds") or []) if _is_proxy_outbound(o)]
+    if not proxies:
+        return False
+    if any(_junk_endpoint(*_outbound_host_port(o)) for o in proxies) and not any(
+        not _junk_endpoint(*_outbound_host_port(o)) for o in proxies
+    ):
+        return False
+    if ensure_xray():
+        if len(proxies) == 1:
+            return xray_outbound_http_alive(proxies[0])
+        return _xray_run_http(doc)
+    host, port = custom_vless_host_port(doc)
+    return tcp_alive(host, port)
+
+
+def _sync_balancer_tags(doc, tags):
+    routing = doc.get("routing")
+    if isinstance(routing, dict):
+        for bal in routing.get("balancers") or []:
+            if not isinstance(bal, dict):
+                continue
+            if tags:
+                bal["selector"] = list(tags)
+                bal["fallbackTag"] = tags[0]
+    burst = doc.get("burstObservatory")
+    if isinstance(burst, dict) and burst.get("subjectSelector") is not None:
+        burst["subjectSelector"] = list(tags)
+    obs = doc.get("observatory")
+    if isinstance(obs, dict) and obs.get("subjectSelector") is not None:
+        obs["subjectSelector"] = list(tags)
+
+
+def prune_dead_proxy_outbounds(doc):
+    """Remove proxy outbounds that fail HTTP. Return None if none remain."""
+    if not isinstance(doc, dict):
+        return None
+    doc = json.loads(json.dumps(doc))
+    outs = doc.get("outbounds") or []
+    proxies = [o for o in outs if _is_proxy_outbound(o)]
+    others = [o for o in outs if not _is_proxy_outbound(o)]
+    if not proxies:
+        return None
+    alive = []
+    for ob in proxies:
+        host, port = _outbound_host_port(ob)
+        tag = ob.get("tag") or "?"
+        if xray_outbound_http_alive(ob):
+            alive.append(ob)
+            print("INFO: outbound OK", tag, host, port)
+        else:
+            print("WARN: drop dead outbound", tag, host, port)
+    if not alive:
+        return None
+    doc["outbounds"] = alive + others
+    tags = [o.get("tag") for o in alive if o.get("tag")]
+    _sync_balancer_tags(doc, tags)
+    return doc
+
+
 def _write_json(path, doc):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False, indent=2)
@@ -954,96 +1216,78 @@ def _pin_entry_from_doc(filename, country, display_name, doc):
     }
 
 
+def _try_pin_custom_file(path, filename, country, display_name, delete_if_dead=False):
+    """Load one custom JSON, strip dead outbounds, skip if nothing works."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            doc = json.load(f)
+        if not isinstance(doc, dict):
+            print("WARN: pinned custom not an object, skip:", filename)
+            return None
+        pruned = prune_dead_proxy_outbounds(doc)
+        if not pruned:
+            print("WARN: drop dead pinned custom", filename)
+            if delete_if_dead:
+                try:
+                    os.remove(path)
+                    print("INFO: deleted dead pin file", filename)
+                except Exception:
+                    pass
+            return None
+        remarks = display_name or pruned.get("remarks") or filename
+        pruned["remarks"] = remarks
+        _write_json(path, pruned)
+        entry = _pin_entry_from_doc(filename, country, remarks, pruned)
+        print("INFO: pinned custom", filename, "->", remarks)
+        return entry
+    except Exception as exc:
+        print("WARN: pinned custom failed:", filename, str(exc))
+        return None
+
+
 def load_pinned_custom():
-    """Load pinned CUSTOM JSON. Drop non-Cloudflare pins whose TCP probe fails."""
+    """Load pinned CUSTOM JSON. Drop pins that fail HTTP-through-proxy (not AWG)."""
     pinned = []
     for filename, country, display_name in PINNED_CUSTOM_JSON:
         path = os.path.join(BASE_DIR, filename)
         if not os.path.isfile(path):
             print("WARN: pinned custom missing, skip:", filename)
             continue
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                doc = json.load(f)
-            if not isinstance(doc, dict):
-                print("WARN: pinned custom not an object, skip:", filename)
-                continue
-            host, port = custom_vless_host_port(doc)
-            if not tcp_alive(host, port):
-                print("WARN: drop dead pinned custom", filename, host, port)
-                continue
-            entry = _pin_entry_from_doc(filename, country, display_name, doc)
+        entry = _try_pin_custom_file(path, filename, country, display_name, delete_if_dead=False)
+        if entry:
             pinned.append(entry)
-            print("INFO: pinned custom", filename, "->", display_name)
-        except Exception as exc:
-            print("WARN: pinned custom failed:", filename, str(exc))
 
     nebula_auto = os.path.join(BASE_DIR, "Nebula_Auto.json")
     if os.path.isfile(nebula_auto):
-        try:
-            with open(nebula_auto, "r", encoding="utf-8") as f:
-                doc = json.load(f)
-            remarks = (doc.get("remarks") if isinstance(doc, dict) else None) or "🇪🇺 Автовыбор"
-            dest = os.path.join(OUT_DIR, "Nebula_Auto.json")
-            _write_json(dest, doc)
-            host, port = custom_vless_host_port(doc)
-            pinned.append({
-                "file": "Nebula_Auto.json",
-                "display_name": remarks,
-                "country": "EU",
-                "host": host,
-                "port": port,
-                "uris": [],
-                "clash": None,
-                "pattng": doc,
-                "kind": "custom",
-            })
-            print("INFO: pinned custom Nebula_Auto.json ->", remarks)
-        except Exception as exc:
-            print("WARN: Nebula_Auto.json failed:", str(exc))
+        entry = _try_pin_custom_file(
+            nebula_auto, "Nebula_Auto.json", "EU", "🇪🇺 Автовыбор", delete_if_dead=False
+        )
+        if entry:
+            pinned.append(entry)
 
     for path in sorted(glob.glob(os.path.join(BASE_DIR, "Nebula_BS_*.json"))):
         filename = os.path.basename(path)
         try:
             with open(path, "r", encoding="utf-8") as f:
-                doc = json.load(f)
-            if not isinstance(doc, dict):
-                continue
-            remarks = doc.get("remarks") or filename
-            host, port = custom_vless_host_port(doc)
-            if not tcp_alive(host, port):
-                print("WARN: drop dead nebula BS", filename, host, port)
-                continue
-            country = flag_to_country(remarks) or "EU"
-            entry = _pin_entry_from_doc(filename, country, remarks, doc)
+                remarks = (json.load(f) or {}).get("remarks") or filename
+        except Exception:
+            remarks = filename
+        country = flag_to_country(remarks) or "EU"
+        entry = _try_pin_custom_file(path, filename, country, remarks, delete_if_dead=True)
+        if entry:
             pinned.append(entry)
-            print("INFO: pinned custom", filename, "->", remarks)
-        except Exception as exc:
-            print("WARN: nebula BS failed:", filename, str(exc))
 
     addsub_auto = os.path.join(BASE_DIR, "AddSub_Auto.json")
     if os.path.isfile(addsub_auto):
-        try:
-            with open(addsub_auto, "r", encoding="utf-8") as f:
-                doc = json.load(f)
-            remarks = (doc.get("remarks") if isinstance(doc, dict) else None) or "🇪🇺 Автовыбор + Невидимый VPN"
-            dest = os.path.join(OUT_DIR, "AddSub_Auto.json")
-            _write_json(dest, doc)
-            host, port = custom_vless_host_port(doc)
-            pinned.append({
-                "file": "AddSub_Auto.json",
-                "display_name": remarks,
-                "country": "EU",
-                "host": host,
-                "port": port,
-                "uris": [],
-                "clash": None,
-                "pattng": doc,
-                "kind": "custom",
-            })
-            print("INFO: pinned custom AddSub_Auto.json ->", remarks)
-        except Exception as exc:
-            print("WARN: AddSub_Auto.json failed:", str(exc))
+        entry = _try_pin_custom_file(
+            addsub_auto,
+            "AddSub_Auto.json",
+            "EU",
+            "🇪🇺 Автовыбор + Невидимый VPN",
+            delete_if_dead=False,
+        )
+        if entry:
+            pinned.append(entry)
 
     for path in sorted(glob.glob(os.path.join(BASE_DIR, "AddSub_*.json"))):
         filename = os.path.basename(path)
@@ -1051,20 +1295,13 @@ def load_pinned_custom():
             continue
         try:
             with open(path, "r", encoding="utf-8") as f:
-                doc = json.load(f)
-            if not isinstance(doc, dict):
-                continue
-            remarks = doc.get("remarks") or filename
-            host, port = custom_vless_host_port(doc)
-            if host and port and not tcp_alive(host, port):
-                print("WARN: drop dead addsub", filename, host, port)
-                continue
-            country = flag_to_country(remarks) or "EU"
-            entry = _pin_entry_from_doc(filename, country, remarks, doc)
+                remarks = (json.load(f) or {}).get("remarks") or filename
+        except Exception:
+            remarks = filename
+        country = flag_to_country(remarks) or "EU"
+        entry = _try_pin_custom_file(path, filename, country, remarks, delete_if_dead=True)
+        if entry:
             pinned.append(entry)
-            print("INFO: pinned custom", filename, "->", remarks)
-        except Exception as exc:
-            print("WARN: addsub pin failed:", filename, str(exc))
     return pinned
 
 
@@ -1212,6 +1449,10 @@ def refresh_nebulacurse_pins(token=""):
         if not isinstance(data, list):
             print("WARN: Nebula Curse JSON is not a list, keeping previous pins")
             return
+        preview = json.dumps(data, ensure_ascii=False)[:800].lower()
+        if "отключен" in preview or "подписка отключена" in preview:
+            print("WARN: Nebula Curse subscription disabled, keeping previous pins")
+            return
     except Exception as exc:
         print("WARN: Nebula Curse fetch failed, keeping previous pins:", str(exc))
         return
@@ -1222,9 +1463,12 @@ def refresh_nebulacurse_pins(token=""):
             continue
         rem = item.get("remarks") or ""
         host, port = custom_vless_host_port(item)
-        if not host or not port:
+        if not host or not port or _junk_endpoint(host, port):
             continue
         jobs.append((i, rem, host, int(port), item))
+    if not jobs:
+        print("WARN: Nebula Curse has no usable endpoints, keeping previous pins")
+        return
 
     probe_stats = {"ok": 0, "fail": 0}
     results = []
@@ -1271,6 +1515,32 @@ def refresh_nebulacurse_pins(token=""):
         "total",
         probe_stats["ok"] + probe_stats["fail"],
     )
+
+    def http_nebula(row):
+        ob = _happ_vless_outbound(row["item"])
+        if not ob:
+            row["ok"] = False
+            return row
+        live = xray_outbound_http_alive(ob)
+        row["ok"] = live
+        print(
+            "INFO: nebula http",
+            "OK" if live else "DEAD",
+            row["rem"],
+            row["host"] + ":" + str(row["port"]),
+        )
+        return row
+
+    tcp_ok_rows = [r for r in results if r["ok"]]
+    if tcp_ok_rows:
+        with ThreadPoolExecutor(max_workers=HTTP_PROBE_WORKERS) as pool:
+            list(pool.map(http_nebula, tcp_ok_rows))
+        print(
+            "INFO: nebula http alive",
+            sum(1 for r in tcp_ok_rows if r["ok"]),
+            "of",
+            len(tcp_ok_rows),
+        )
 
     country_nodes = []
     bs_nodes = []
@@ -1395,12 +1665,7 @@ def _is_germany_name(name):
 
 
 def refresh_addsub_pins():
-    """Pin all addsub.site servers except Germany. Strip DE hosts from auto-select."""
-    for path in glob.glob(os.path.join(BASE_DIR, "AddSub_*.json")):
-        try:
-            os.remove(path)
-        except Exception:
-            pass
+    """Pin all addsub.site servers except Germany. Strip DE hosts and dead outbounds."""
     try:
         resp = requests.get(
             ADDSUB_HAPP_URL,
@@ -1433,6 +1698,7 @@ def refresh_addsub_pins():
     if not de_hosts:
         de_hosts.update({"144.31.40.96"})
 
+    written = []
     idx = 1
     for item in kept:
         rem = item.get("remarks") or ""
@@ -1447,26 +1713,35 @@ def refresh_addsub_pins():
                     continue
                 outs.append(ob)
             doc["outbounds"] = outs
-            tags = [o.get("tag") for o in outs if isinstance(o, dict) and o.get("protocol") == "vless" and o.get("tag")]
-            routing = doc.setdefault("routing", {})
-            bals = routing.get("balancers") or []
-            if bals and tags:
-                bals[0]["selector"] = [tags[0]] if tags else ["proxy"]
-                bals[0]["fallbackTag"] = tags[0] if tags else "proxy"
-            burst = doc.get("burstObservatory") or {}
-            if burst.get("subjectSelector") is not None:
-                burst["subjectSelector"] = tags
-            doc["remarks"] = "🇪🇺 Автовыбор + Невидимый VPN"
-            path = os.path.join(BASE_DIR, "AddSub_Auto.json")
-            _write_json(path, doc)
-            print("INFO: addsub auto pin", doc["remarks"], "vless", len(tags))
+        pruned = prune_dead_proxy_outbounds(doc)
+        if not pruned:
+            print("WARN: addsub dead skip", rem)
             continue
-        path = os.path.join(BASE_DIR, "AddSub_%02d.json" % idx)
-        _write_json(path, doc)
-        print("INFO: addsub pin", rem)
+        tags = [
+            o.get("tag")
+            for o in (pruned.get("outbounds") or [])
+            if _is_proxy_outbound(o) and o.get("tag")
+        ]
+        _sync_balancer_tags(pruned, tags)
+        if is_auto:
+            pruned["remarks"] = "🇪🇺 Автовыбор + Невидимый VPN"
+            written.append(("AddSub_Auto.json", pruned, pruned["remarks"]))
+            continue
+        written.append(("AddSub_%02d.json" % idx, pruned, rem))
         idx += 1
-    if idx == 1 and not os.path.isfile(os.path.join(BASE_DIR, "AddSub_Auto.json")):
-        print("WARN: addsub produced no pins")
+
+    if not written:
+        print("WARN: addsub produced no live pins, keeping previous files")
+        return
+
+    for path in glob.glob(os.path.join(BASE_DIR, "AddSub_*.json")):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+    for filename, doc, rem in written:
+        _write_json(os.path.join(BASE_DIR, filename), doc)
+        print("INFO: addsub pin", rem)
 
 
 def probe_once(host, port, timeout=TIMEOUT):
@@ -1590,6 +1865,10 @@ def write_file(name, content):
 def main():
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
+    if ensure_xray():
+        print("INFO: HTTP liveness via Xray")
+    else:
+        print("WARN: Xray unavailable; HTTP liveness falls back to TCP")
     pinned = load_pinned_awg()
     refresh_fastcone_switzerland_pin()
     refresh_griffon_france_pin()
@@ -1631,6 +1910,8 @@ def main():
             if key in seen:
                 continue
             if ("any", node["host"], node["port"]) in pinned_keys or key in pinned_keys:
+                continue
+            if _junk_endpoint(node["host"], node["port"]):
                 continue
             if is_ru(node["name"]):
                 continue
@@ -1690,8 +1971,53 @@ def main():
         rough.append(node)
 
     rough.sort(key=lambda n: n["_rough"], reverse=True)
-    confirm_list = rough[:REPROBE_TOP]
-    print("INFO: pass1 survivors:", len(rough), "| confirming top:", len(confirm_list))
+
+    http_candidates = []
+    per_src_http = {}
+    for node in rough:
+        src = node["source"]
+        if per_src_http.get(src, 0) >= HTTP_PROBE_PER_SOURCE:
+            continue
+        per_src_http[src] = per_src_http.get(src, 0) + 1
+        http_candidates.append(node)
+        if len(http_candidates) >= HTTP_PROBE_MAX:
+            break
+    print(
+        "INFO: pass1 survivors:",
+        len(rough),
+        "| http probing:",
+        len(http_candidates),
+    )
+
+    def node_http_ok(node):
+        doc = share_uri_to_pattng_json(node["raw"], node.get("name") or "")
+        if not doc:
+            print("WARN: http skip convert", node.get("scheme"), node.get("host"), node.get("port"))
+            return False
+        ok = xray_http_alive(doc)
+        print(
+            "INFO: http",
+            "OK" if ok else "DEAD",
+            node["scheme"],
+            node["host"],
+            node["port"],
+        )
+        return ok
+
+    http_alive = []
+    with ThreadPoolExecutor(max_workers=HTTP_PROBE_WORKERS) as pool:
+        futs = {pool.submit(node_http_ok, n): n for n in http_candidates}
+        for fut in as_completed(futs):
+            n = futs[fut]
+            try:
+                if fut.result():
+                    http_alive.append(n)
+            except Exception as exc:
+                print("WARN: http probe error", n.get("host"), exc)
+    http_alive.sort(key=lambda n: n["_rough"], reverse=True)
+    print("INFO: http alive:", len(http_alive), "of", len(http_candidates))
+    confirm_list = http_alive[:REPROBE_TOP]
+    print("INFO: confirming", len(confirm_list), "http-alive nodes")
 
     def confirm_node(node):
         ok2, samples2 = probe(

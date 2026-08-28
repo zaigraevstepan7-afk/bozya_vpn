@@ -3,8 +3,9 @@
 Автоматический сбор и проверка VPN-подписок (VLESS / VMess / Trojan / Hysteria2).
 
 Скрипт скачивает несколько источников, убирает дубликаты и российские узлы,
-проверяет доступность серверов по TCP, сортирует узлы по качеству и публикует
-готовые файлы в ветке main через GitHub Actions.
+проверяет доступность сначала по TCP, затем реальной загрузкой HTTP через Xray
+(сокс → generate_204). В подписку попадают только узлы, которые реально проксируют
+трафик. Три Cloudflare AWG (🇩🇪/🇫🇮/🇵🇱) всегда остаются, даже если порт не отвечает.
 
 ## Готовые файлы
 
@@ -48,11 +49,11 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
 В начале подписки всегда:
-- 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
+- 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP/HTTP не отвечает
 - живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются)
-- `🇪🇺 Автовыбор` (leastPing по живым DE/NL/TH из Nebula Curse)
-- минимум 5 БС из Nebula Curse не из России (`Белый список | LTE-N · страна`)
-- все сервера addsub.site **кроме Германии** (автовыбор без DE + NL/PL/EE)
+- `🇪🇺 Автовыбор` (leastPing по живым нодам Nebula Curse, если подписка жива)
+- минимум 5 БС из Nebula Curse не из России (`Белый список | LTE-N · страна`), если они отвечают
+- все **рабочие** сервера addsub.site **кроме Германии** (автовыбор без DE + NL/PL/EE)
 
 Источники автопарсера:
 - Griffon `https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (HWID)
