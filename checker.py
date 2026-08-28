@@ -96,6 +96,8 @@ HTTP_PROBE_URLS = [
 ]
 PROXY_PROTOCOLS = ("vless", "vmess", "trojan", "shadowsocks", "hysteria2")
 JUNK_HOSTS = {"0.0.0.0", "127.0.0.1", "::", "::1", "localhost"}
+MAX_PROXY_OUTBOUNDS = 4
+MAX_AUTO_OUTBOUNDS = 6
 
 SCHEMES = ("vless://", "vmess://", "trojan://", "ss://", "hysteria2://", "hy2://")
 GAME_GEO = ["NL", "DE", "PL", "CZ", "RO", "FI", "SE", "SG", "JP", "US"]
@@ -1184,6 +1186,24 @@ def prune_dead_proxy_outbounds(doc):
             print("WARN: drop dead outbound", tag, host, port)
     if not alive:
         return None
+    remarks = (doc.get("remarks") or "").lower()
+    max_n = MAX_AUTO_OUTBOUNDS if "автовыбор" in remarks else MAX_PROXY_OUTBOUNDS
+    unique = []
+    seen = set()
+    for ob in alive:
+        host, port = _outbound_host_port(ob)
+        try:
+            port_key = int(port)
+        except Exception:
+            port_key = port
+        key = (host, port_key)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(ob)
+        if len(unique) >= max_n:
+            break
+    alive = unique
     doc["outbounds"] = alive + others
     tags = [o.get("tag") for o in alive if o.get("tag")]
     _sync_balancer_tags(doc, tags)
@@ -1651,6 +1671,76 @@ def refresh_nebulacurse_pins(token=""):
         print("WARN: no nebula country nodes for auto-select")
 
 
+def _build_auto_from_docs(docs, remarks, max_n=MAX_AUTO_OUTBOUNDS):
+    """Build a leastPing auto-select config from live country pin outbounds."""
+    outbounds = []
+    tags = []
+    seen = set()
+    idx = 1
+    for doc in docs:
+        if not isinstance(doc, dict):
+            continue
+        for ob in doc.get("outbounds") or []:
+            if not _is_proxy_outbound(ob):
+                continue
+            host, port = _outbound_host_port(ob)
+            try:
+                port_key = int(port)
+            except Exception:
+                port_key = port
+            key = (host, port_key)
+            if key in seen:
+                continue
+            seen.add(key)
+            copy = json.loads(json.dumps(ob))
+            tag = "auto-" + str(idx)
+            copy["tag"] = tag
+            outbounds.append(copy)
+            tags.append(tag)
+            idx += 1
+            if len(outbounds) >= max_n:
+                break
+        if len(outbounds) >= max_n:
+            break
+    if not outbounds:
+        return None
+    return {
+        "remarks": remarks,
+        "log": {"loglevel": "warning"},
+        "inbounds": [{
+            "tag": "socks",
+            "port": 10808,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "settings": {"udp": True},
+        }],
+        "outbounds": outbounds + [
+            {"tag": "direct", "protocol": "freedom"},
+            {"tag": "block", "protocol": "blackhole"},
+        ],
+        "routing": {
+            "domainStrategy": "AsIs",
+            "balancers": [{
+                "tag": "auto",
+                "selector": tags,
+                "strategy": {"type": "leastPing"},
+                "fallbackTag": tags[0],
+            }],
+            "rules": [{
+                "type": "field",
+                "network": "tcp,udp",
+                "balancerTag": "auto",
+            }],
+        },
+        "observatory": {
+            "subjectSelector": tags,
+            "probeUrl": "https://www.gstatic.com/generate_204",
+            "probeInterval": "1m",
+            "enableConcurrency": True,
+        },
+    }
+
+
 def _vless_outbound_host(ob):
     if not isinstance(ob, dict) or ob.get("protocol") != "vless":
         return None
@@ -1729,6 +1819,16 @@ def refresh_addsub_pins():
             continue
         written.append(("AddSub_%02d.json" % idx, pruned, rem))
         idx += 1
+
+    if not any(name == "AddSub_Auto.json" for name, _doc, _rem in written):
+        auto_doc = _build_auto_from_docs(
+            [doc for name, doc, _rem in written],
+            "🇪🇺 Автовыбор + Невидимый VPN",
+            max_n=MAX_AUTO_OUTBOUNDS,
+        )
+        if auto_doc:
+            written.insert(0, ("AddSub_Auto.json", auto_doc, auto_doc["remarks"]))
+            print("INFO: rebuilt addsub auto from live country nodes")
 
     if not written:
         print("WARN: addsub produced no live pins, keeping previous files")
@@ -2189,6 +2289,18 @@ def main():
         "pattng-full.b64.txt",
         base64.b64encode(pattng_full_min.encode("utf-8")).decode("ascii"),
     )
+
+    keep_pin_files = {item["file"] for item in pinned_all}
+    for path in glob.glob(os.path.join(OUT_DIR, "*.json")):
+        name = os.path.basename(path)
+        if name in ("pattng-bs.json", "pattng-full.json", "pattng-bs.min.json", "pattng-full.min.json", "report.json"):
+            continue
+        if name.startswith(("AddSub_", "Nebula_", "FastCone_", "VIP_", "Griffon_")) and name not in keep_pin_files:
+            try:
+                os.remove(path)
+                print("INFO: removed stale output pin", name)
+            except Exception:
+                pass
 
     report = []
     for item in pinned_all:
