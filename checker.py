@@ -33,15 +33,16 @@ except Exception:
     pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+ASKA_SUB_URL = "https://sub.aska.lol/Ux7lmK0xkIl2"
+AKONIT_SUB_URL = "https://akonit.tech/sub/f9afd2d3-3858-403e-bbc9-9a720420c188"
+# happ://crypt5/... decrypts to this Fixcord subscription.
+HAPP_SUB_URL = "https://admin.fixcord.gg/happ/aARo_udWAVM_N0eT6ac7GmZas1Uhs3fi4IWsGEh4yfA/subscription"
+
 SOURCES = [
-    "https://sub.aska.lol/Ux7lmK0xkIl2",
-    "https://connliberty.com/connection/subs/dcf2b960-d490-40dd-a18b-1718550f939e",
-    "https://akonit.tech/sub/f9afd2d3-3858-403e-bbc9-9a720420c188",
-    "https://sub.vlessfo.ru/vlessforu/working_configs.txt",
-    # Griffon (needs x-hwid). Also used to refresh pinned 🇫🇷 Франция.
-    "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc",
-    # Nebula Curse: country nodes + LTE БС. Hiddify UA returns vless:// lines.
-    "https://sub.nebulacurse.space/W83--xXdonEXYRBB/",
+    ASKA_SUB_URL,
+    AKONIT_SUB_URL,
+    HAPP_SUB_URL,
 ]
 
 # Stable device id for panels that require HWID (Happ / Hiddify / Remnawave).
@@ -55,13 +56,12 @@ PINNED_AWG_CONFIGS = [
     ("LTEpWARPv2_60.conf", "PL"),
 ]
 
-# Pinned Xray/Happ custom JSON configs. After AWG pins. Dead ones (HTTP-through-proxy
-# fail) are dropped. Only the 3 Cloudflare AWG pins above are kept unconditionally.
-PINNED_CUSTOM_JSON = [
-    ("FastCone_Switzerland.json", "CH", "🇨🇭 Швейцария"),
-    ("VIP_LTE_Finland.json", "FI", "🇫🇮 Лютый обход | VIP LTE Финляндия"),
-    ("Griffon_France.json", "FR", "🇫🇷 Франция"),
-]
+# Old custom pins (Griffon / FastCone / VIP / AddSub / Nebula) are no longer published.
+PINNED_CUSTOM_JSON = []
+
+NL_STABLE_NAME = "🇳🇱 СЕРВЕРА СУПЕР СТАБИЛЬНЫЕ ДЛЯ НИКИТЫ И ПОЛИНЫ"
+ASKA_MAX_FINAL = 6
+TOTAL_TARGET = 40
 
 GRIFFON_SUB_URL = "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc"
 FASTCONE_SUB_URL = "https://sub.fast-cone.com/32e027b8a8074dd41d9afe073fd85a01"
@@ -73,9 +73,10 @@ ADDSUB_SUB_URL = "https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF"
 ADDSUB_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + ADDSUB_SUB_URL
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
-TOP_N = 30
-MAX_TEST_PER_SOURCE = 80
-MAX_PER_SOURCE_FINAL = 15
+TOP_N = 40
+MAX_TEST_PER_SOURCE = 100
+MAX_PER_SOURCE_FINAL = 40
+MAX_ASKA_TEST = 120
 MIN_SUCCESS = 0.8
 ATTEMPTS = 5
 CONFIRM_ATTEMPTS = 5
@@ -184,6 +185,10 @@ COUNTRY_HINTS = [
 ]
 
 
+def is_nl_name(text):
+    return detect_country_from_name(text or "") == "NL"
+
+
 def flag_to_country(text):
     letters = []
     for ch in text:
@@ -264,6 +269,13 @@ def extract_nodes(text):
     return found
 
 
+def clean_remark(name):
+    text = name or ""
+    if "?serverDescription=" in text:
+        text = text.split("?serverDescription=", 1)[0]
+    return text.strip()
+
+
 def parse_generic(uri, scheme):
     try:
         body = uri.split("://", 1)[-1].split("#")[0].split("?")[0]
@@ -272,10 +284,13 @@ def parse_generic(uri, scheme):
         parsed = urlparse(uri)
         host = parsed.hostname or ""
         port = parsed.port or 443
-        name = unquote(parsed.fragment or "")
+        name = clean_remark(unquote(parsed.fragment or ""))
         if not host:
             return None
-        return {"scheme": scheme, "host": host, "port": port, "name": name, "raw": uri}
+        raw = uri
+        if "#" in uri:
+            raw = uri.split("#", 1)[0] + "#" + quote(name, safe="")
+        return {"scheme": scheme, "host": host, "port": port, "name": name, "raw": raw}
     except Exception:
         return None
 
@@ -293,7 +308,7 @@ def parse_vmess(uri):
         data = json.loads(raw.decode("utf-8"))
         host = data.get("add") or data.get("host") or ""
         port = int(data.get("port") or 0)
-        name = data.get("ps") or ""
+        name = clean_remark(data.get("ps") or "")
         if not host or not port:
             return None
         return {"scheme": "vmess", "host": host, "port": port, "name": name, "data": data, "raw": uri}
@@ -1970,13 +1985,8 @@ def main():
     else:
         print("WARN: Xray unavailable; HTTP liveness falls back to TCP")
     pinned = load_pinned_awg()
-    refresh_fastcone_switzerland_pin()
-    refresh_griffon_france_pin()
-    refresh_nebulacurse_pins(token)
-    refresh_addsub_pins()
-    pinned_custom = load_pinned_custom()
-    # Order: AWG whitelist, then healthy custom pins (CH / VIP FI / FR / auto / nebula BS).
-    pinned_all = pinned + pinned_custom
+    pinned_custom = []
+    pinned_all = pinned
     pinned_keys = set()
     for item in pinned_all:
         if item.get("host") and item.get("port"):
@@ -1996,39 +2006,62 @@ def main():
         per_source[url] = lines
         print("INFO: source nodes:", url, len(lines))
 
+    def make_node(line, url):
+        node = parse_node(line)
+        if not node:
+            return None
+        if _junk_endpoint(node["host"], node["port"]):
+            return None
+        if is_ru(node["name"]):
+            return None
+        node["source"] = url
+        node["country"] = detect_country_from_name(node["name"])
+        node["resolved_ip"] = None
+        node["success_rate"] = 0.0
+        node["median_ms"] = None
+        node["jitter_ms"] = None
+        node["total_score"] = 0.0
+        node["game_score"] = 0.0
+        node["speed_score"] = 0.0
+        return node
+
+    nl_nodes = []
+    seen_nl = set()
+    for line in per_source.get(AKONIT_SUB_URL, []):
+        node = make_node(line, AKONIT_SUB_URL)
+        if not node:
+            continue
+        if not is_nl_name(node["name"]):
+            continue
+        key = (node["scheme"], node["host"], node["port"], node["name"])
+        if key in seen_nl:
+            continue
+        seen_nl.add(key)
+        node["country"] = "NL"
+        nl_nodes.append(node)
+    print("INFO: akonit NL nodes:", len(nl_nodes))
+
     seen = set()
     candidates = []
-    for url in SOURCES:
+    for url in (HAPP_SUB_URL, ASKA_SUB_URL):
+        limit = MAX_ASKA_TEST if url == ASKA_SUB_URL else MAX_TEST_PER_SOURCE
         count = 0
-        for line in per_source[url]:
-            if count >= MAX_TEST_PER_SOURCE:
+        for line in per_source.get(url, []):
+            if count >= limit:
                 break
-            node = parse_node(line)
+            node = make_node(line, url)
             if not node:
                 continue
-            key = (node["scheme"], node["host"], node["port"])
+            key = (node["scheme"], node["host"], node["port"], node.get("name") or "")
             if key in seen:
                 continue
-            if ("any", node["host"], node["port"]) in pinned_keys or key in pinned_keys:
-                continue
-            if _junk_endpoint(node["host"], node["port"]):
-                continue
-            if is_ru(node["name"]):
+            if ("any", node["host"], node["port"]) in pinned_keys:
                 continue
             seen.add(key)
-            node["source"] = url
-            node["country"] = detect_country_from_name(node["name"])
-            node["resolved_ip"] = None
-            node["success_rate"] = 0.0
-            node["median_ms"] = None
-            node["jitter_ms"] = None
-            node["total_score"] = 0.0
-            node["game_score"] = 0.0
-            node["speed_score"] = 0.0
             candidates.append(node)
             count += 1
 
-    print("INFO: candidates:", len(candidates))
+    print("INFO: candidates:", len(candidates), "happ+aska")
     print("INFO: pass1 probing", len(candidates), "nodes...")
 
     def probe_node(node, attempts=ATTEMPTS):
@@ -2199,33 +2232,50 @@ def main():
         )
     )
 
-    final = []
-    per_src_count = {}
-    for node in tested:
-        src = node["source"]
-        if per_src_count.get(src, 0) >= MAX_PER_SOURCE_FINAL:
-            continue
-        per_src_count[src] = per_src_count.get(src, 0) + 1
-        final.append(node)
-        if len(final) >= TOP_N:
-            break
+    happ_tested = [n for n in tested if n["source"] == HAPP_SUB_URL]
+    aska_tested = [n for n in tested if n["source"] == ASKA_SUB_URL]
+    aska_tested.sort(
+        key=lambda n: (
+            n["median_ms"] if n["median_ms"] is not None else 999.0,
+            n["jitter_ms"] if n["jitter_ms"] is not None else 999.0,
+        )
+    )
+    aska_pick = aska_tested[:ASKA_MAX_FINAL]
+    print("INFO: happ alive:", len(happ_tested), "| aska fastest:", len(aska_pick), "of", len(aska_tested))
+
+    nl_final = []
+    for i, node in enumerate(nl_nodes, start=1):
+        node["display_name"] = NL_STABLE_NAME if i == 1 else NL_STABLE_NAME + "-" + str(i)
+        node["final_raw"] = rename_node(node, node["display_name"])
+        node["pinned"] = False
+        nl_final.append(node)
+        print("INFO: nl pin", node["display_name"], node["host"], node["port"])
+
+    room = max(0, TOTAL_TARGET - len(pinned_all) - len(nl_final))
+    aska_slots = min(ASKA_MAX_FINAL, len(aska_pick), room)
+    happ_slots = max(0, room - aska_slots)
+    mixed = happ_tested[:happ_slots] + aska_pick[:aska_slots]
+    final = nl_final + mixed
+    print("INFO: assembled", len(pinned_all), "awg +", len(nl_final), "nl +", len(happ_tested[:happ_slots]), "happ +", len(aska_pick[:aska_slots]), "aska =", len(pinned_all) + len(final))
 
     game_pick = None
-    if final:
+    if mixed:
         game_pick = sorted(
-            final,
-            key=lambda n: (-n["game_score"], n["geo_rank"], n["median_ms"] or 999.0, n["jitter_ms"]),
+            mixed,
+            key=lambda n: (-n.get("game_score") or 0, n.get("geo_rank") or 999, n["median_ms"] or 999.0, n.get("jitter_ms") or 999),
         )[0]
 
     speed_pick = None
-    if final:
+    if mixed:
         speed_pick = sorted(
-            final,
-            key=lambda n: (-n["success_rate"], -n["speed_score"], n["median_ms"] or 999.0, n["jitter_ms"]),
+            mixed,
+            key=lambda n: (-n.get("success_rate") or 0, -n.get("speed_score") or 0, n["median_ms"] or 999.0, n.get("jitter_ms") or 999),
         )[0]
 
     used_names = {}
     for node in final:
+        if node.get("source") == AKONIT_SUB_URL and node.get("display_name"):
+            continue
         if node["country"]:
             base = country_display(node["country"])
         else:
