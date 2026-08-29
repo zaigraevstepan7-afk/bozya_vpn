@@ -89,7 +89,7 @@ REPROBE_TOP = 60
 HTTP_PROBE_WORKERS = 5
 HTTP_PROBE_TIMEOUT = 8
 HTTP_PROBE_MAX = 160
-HTTP_PROBE_PER_SOURCE = 30
+HTTP_PROBE_PER_SOURCE = 50
 XRAY_ZIP_URL = "https://github.com/XTLS/Xray-core/releases/download/v26.7.11/Xray-linux-64.zip"
 HTTP_PROBE_URLS = [
     "https://www.gstatic.com/generate_204",
@@ -2107,10 +2107,15 @@ def main():
 
     http_candidates = []
     per_src_http = {}
+    per_src_hosts = {}
     for node in rough:
         src = node["source"]
         if per_src_http.get(src, 0) >= HTTP_PROBE_PER_SOURCE:
             continue
+        hosts = per_src_hosts.setdefault(src, set())
+        if src == ASKA_SUB_URL and node["host"] in hosts:
+            continue
+        hosts.add(node["host"])
         per_src_http[src] = per_src_http.get(src, 0) + 1
         http_candidates.append(node)
         if len(http_candidates) >= HTTP_PROBE_MAX:
@@ -2276,10 +2281,11 @@ def main():
     for node in final:
         if node.get("source") == AKONIT_SUB_URL and node.get("display_name"):
             continue
-        if node["country"]:
-            base = country_display(node["country"])
+        cc = node.get("country")
+        if cc and cc in FULL_NAMES:
+            base = country_display(cc)
         else:
-            base = "Неизвестно"
+            base = country_display("EU") or "🇪🇺 Европа"
         used_names[base] = used_names.get(base, 0) + 1
         num = used_names[base]
         new_name = base if num == 1 else base + "-" + str(num)
