@@ -52,6 +52,34 @@ PINNED_AWG_CONFIGS = [
     ("LTEpWARPv2_60.conf", "PL"),
 ]
 
+# Dedicated whitelist (BS) AmneziaWG configs from the uploaded ZIP. Published
+# separately as happ-bs.txt / pattng-bs.json — not mixed into the regular sub.
+# Happ shows GitHub raw URLs as the subscription name unless profile-title is set.
+# vpnmx-style: HTTP header `profile-title: base64:...` (GitHub raw cannot set headers).
+# Body fallback used by Clash/Happ: `#profile-title: base64:...` (not plaintext).
+PROFILE_TITLE = "bozya vpn"
+PROFILE_TITLE_B64 = base64.b64encode(PROFILE_TITLE.encode("utf-8")).decode("ascii")
+WHITELIST_DIR = os.path.join(BASE_DIR, "bs")
+WHITELIST_FILE_COUNTRY = {
+    "ltefin": "FI",
+    "ltegerm": "DE",
+    "ltepol": "PL",
+    "de": "DE",
+    "ee": "EE",
+    "fl": "FI",
+    "fi": "FI",
+    "lv": "LV",
+    "nl": "NL",
+    "pl": "PL",
+    "ru": "RU",
+}
+WHITELIST_HOST_COUNTRY = {
+    "de": "DE", "ee": "EE", "fi": "FI", "fl": "FI", "lv": "LV",
+    "nl": "NL", "pl": "PL", "ru": "RU", "fr": "FR", "se": "SE",
+    "no": "NO", "lt": "LT", "at": "AT", "ch": "CH", "cz": "CZ",
+    "gb": "GB", "uk": "GB", "us": "US", "tr": "TR", "kz": "KZ",
+}
+
 # Pinned Xray/Happ custom JSON configs. After AWG pins. Dead ones (TCP fail) are dropped,
 # except AWG/Cloudflare above.
 PINNED_CUSTOM_JSON = [
@@ -440,8 +468,12 @@ def awg_conf_to_uri(interface, peer, display_name):
     ]
     query_str = _encode_query(query)
     userinfo = quote(private_key, safe="-_")
-    # Title: "Белый список | 🇩🇪 Германия" (fits Happ's ~30 char limit).
-    short = (display_name or "Белый список")[:30]
+    # Title: Happ truncates ~30 chars. Keep flag+country; full name in description.
+    short = display_name or "Белый список"
+    if short.startswith("Белый список | "):
+        short = "БС | " + short[len("Белый список | "):]
+    if len(short) > 30:
+        short = short[:30]
     desc = base64.b64encode((display_name or short).encode("utf-8")).decode("ascii")
     fragment = quote(short, safe="") + "?serverDescription=" + desc
     return [
@@ -523,6 +555,8 @@ def awg_to_finalmask(interface):
     PattNG applies streamSettings.finalmask on WireGuard outbounds (CUSTOM JSON
     is passed to the core as-is).
     """
+    # Same recipe as the working nikita-polina JSON: I1 hex + Jc rand only.
+    # Extra I2–I5 (SIP junk in ltegerm) breaks stock PattNG Finalmask.
     noises = []
     i1_hex = _i1_to_hex(interface.get("I1"))
     if i1_hex:
@@ -840,6 +874,181 @@ def load_pinned_awg():
     if len(pinned) != len(PINNED_AWG_CONFIGS):
         raise RuntimeError("pinned AWG configs must always be present")
     return pinned
+
+
+def country_from_host(host):
+    host = (host or "").strip().lower().rstrip(".")
+    if not host:
+        return None
+    for label in host.split("."):
+        label = re.sub(r"\d+$", "", label)
+        if label in WHITELIST_HOST_COUNTRY:
+            return WHITELIST_HOST_COUNTRY[label]
+    return None
+
+
+def infer_whitelist_country(filename, host):
+    stem = os.path.splitext(filename or "")[0].lower()
+    is_lte = stem.startswith("lte")
+    country = WHITELIST_FILE_COUNTRY.get(stem)
+    if not country:
+        prefix = re.match(r"^([a-z]{2,8})", stem)
+        if prefix:
+            country = WHITELIST_FILE_COUNTRY.get(prefix.group(1))
+    if not country:
+        country = country_from_host(host)
+    return is_lte, country
+
+
+def load_whitelist_bs(token=""):
+    """Build the dedicated PattNG whitelist.
+
+    Start with the three Cloudflare AWG pins from the working
+    pattng-full.json (those BS already connect in PattNG), then the ZIP
+    configs converted with the same I1+Jc Finalmask recipe.
+    """
+    items = []
+    seen = set()
+    try:
+        for item in load_pinned_awg():
+            key = (item.get("host"), item.get("port"))
+            seen.add(key)
+            item["lte"] = False
+            items.append(item)
+            print("INFO: whitelist classic pin", item["file"], "->", item["display_name"], item["host"])
+    except Exception as exc:
+        print("WARN: classic BS pins:", exc)
+
+    os.makedirs(WHITELIST_DIR, exist_ok=True)
+    files = sorted(glob.glob(os.path.join(WHITELIST_DIR, "*.conf")))
+    if not files and not items:
+        print("WARN: no whitelist configs in", WHITELIST_DIR)
+        return []
+    pending = []
+    for path in files:
+        filename = os.path.basename(path)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                text = f.read()
+            interface, peer = parse_wg_conf(text)
+            host, port = split_endpoint(peer.get("Endpoint") or "")
+            is_lte, country = infer_whitelist_country(filename, host)
+            pending.append({
+                "path": path,
+                "file": filename,
+                "interface": interface,
+                "peer": peer,
+                "host": host,
+                "port": int(port) if port and str(port).isdigit() else port,
+                "is_lte": is_lte,
+                "country": country,
+            })
+        except Exception as exc:
+            print("WARN: whitelist config failed:", filename, str(exc))
+
+    need_lookup = [item for item in pending if not item["country"] and item["host"]]
+    if need_lookup:
+        def fill_country(item):
+            ip = resolve_host(item["host"])
+            cc = lookup_country(ip, token) if ip else None
+            if cc:
+                item["country"] = cc
+                print("INFO: whitelist country by IP", item["file"], item["host"], ip, cc)
+            else:
+                print("WARN: whitelist country unknown", item["file"], item["host"])
+            return item
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(fill_country, need_lookup))
+
+    pending.sort(key=lambda item: (
+        0 if item["is_lte"] else 1,
+        item["country"] or "ZZ",
+        item["file"],
+    ))
+    used = {}
+    for item in items:
+        used[item["display_name"]] = used.get(item["display_name"], 0) + 1
+    for item in pending:
+        key = (item["host"], item["port"])
+        if key in seen:
+            print("INFO: whitelist skip duplicate", item["file"], item["host"], item["port"])
+            continue
+        geo = country_display(item["country"]) if item["country"] else "Неизвестно"
+        if item["is_lte"]:
+            base = "Белый список | LTE | " + geo
+        else:
+            base = "Белый список | " + geo
+        used[base] = used.get(base, 0) + 1
+        display_name = base if used[base] == 1 else base + "-" + str(used[base])
+        uris = awg_conf_to_uri(item["interface"], item["peer"], display_name)
+        clash = awg_conf_to_clash(item["interface"], item["peer"], display_name)
+        pattng = awg_conf_to_pattng_json(item["interface"], item["peer"], display_name)
+        if not uris or not pattng:
+            print("WARN: whitelist incomplete, skip:", item["file"])
+            continue
+        dest = os.path.join(OUT_DIR, item["file"])
+        shutil.copy2(item["path"], dest)
+        seen.add(key)
+        items.append({
+            "file": item["file"],
+            "display_name": display_name,
+            "country": item["country"],
+            "host": item["host"],
+            "port": item["port"],
+            "uris": uris,
+            "clash": clash,
+            "pattng": pattng,
+            "kind": "awg",
+            "lte": item["is_lte"],
+        })
+        print("INFO: whitelist", item["file"], "->", display_name, item["host"])
+    return items
+
+
+def write_whitelist_outputs(items):
+    awg_uris = []
+    for item in items:
+        awg_uris.extend(item["uris"])
+    happ_text = happ_subscription_text(awg_uris)
+    write_file("bs.txt", happ_text)
+    write_file("happ-bs.txt", happ_text)
+    happ_b64 = base64.b64encode((happ_text + "\n").encode("utf-8")).decode("ascii")
+    write_file("bs.b64.txt", happ_b64)
+    write_file("happ-bs.b64.txt", happ_b64)
+    clash_doc = {
+        "proxies": [item["clash"] for item in items if item.get("clash")],
+        "proxy-groups": [{
+            "name": "Белый список",
+            "type": "select",
+            "proxies": [item["display_name"] for item in items if item.get("clash")],
+        }],
+    }
+    with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
+        yaml.safe_dump(clash_doc, f, allow_unicode=True, sort_keys=False)
+    pattng_docs = [item["pattng"] for item in items]
+    with open(os.path.join(OUT_DIR, "pattng-bs.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng_docs, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    pattng_min = json.dumps(pattng_docs, ensure_ascii=False, separators=(",", ":"))
+    write_file("pattng-bs.min.json", pattng_min)
+    write_file(
+        "pattng-bs.b64.txt",
+        base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
+    )
+    report = []
+    for item in items:
+        report.append({
+            "display_name": item["display_name"],
+            "file": item["file"],
+            "host": item["host"],
+            "port": item["port"],
+            "country": item["country"],
+            "lte": bool(item.get("lte")),
+        })
+    with open(os.path.join(OUT_DIR, "whitelist-report.json"), "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    print("INFO: whitelist published", len(items), "configs")
 
 
 def custom_json_to_vless_uri(doc, display_name):
@@ -1577,6 +1786,22 @@ def lookup_country(ip, token):
     return country
 
 
+def happ_subscription_text(uris):
+    """Happ profile name. Prefer HTTP headers (see worker/); GitHub raw only has the body."""
+    if isinstance(uris, str):
+        payload = uris.strip("\n")
+    else:
+        payload = "\n".join(uris)
+    # Strip a previous title block so we never stack duplicates.
+    lines = [ln for ln in payload.splitlines() if not ln.startswith("#profile-title:") and not ln.startswith("#profile-update-interval:")]
+    payload = "\n".join(lines)
+    return (
+        "#profile-title: base64:" + PROFILE_TITLE_B64 + "\n"
+        "#profile-update-interval: 1\n"
+        + payload
+    )
+
+
 def write_file(name, content):
     if not content:
         content = ""
@@ -1590,6 +1815,11 @@ def write_file(name, content):
 def main():
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
+    whitelist = load_whitelist_bs(token)
+    write_whitelist_outputs(whitelist)
+    if "--whitelist-only" in sys.argv:
+        print("INFO: whitelist-only done")
+        return
     pinned = load_pinned_awg()
     refresh_fastcone_switzerland_pin()
     refresh_griffon_france_pin()
@@ -1814,38 +2044,11 @@ def main():
     for item in pinned_all:
         pinned_uris.extend(item["uris"])
     top_lines = pinned_uris + [n["final_raw"] for n in final]
-    top_text = "\n".join(top_lines)
+    top_text = happ_subscription_text(top_lines)
     write_file("top30.txt", top_text)
     b64_text = base64.b64encode((top_text + "\n").encode("utf-8")).decode("ascii")
     write_file("top30.b64.txt", b64_text)
-    # Tiny subscription with only BS/AWG pins — use if the mixed list drops them.
-    awg_uris = []
-    for item in pinned:
-        awg_uris.extend(item["uris"])
-    write_file("bs.txt", "\n".join(awg_uris))
-    write_file("happ-bs.txt", "\n".join(awg_uris))
-    write_file("bs.b64.txt", base64.b64encode(("\n".join(awg_uris) + "\n").encode("utf-8")).decode("ascii"))
-    write_file("happ-bs.b64.txt", base64.b64encode(("\n".join(awg_uris) + "\n").encode("utf-8")).decode("ascii"))
-    clash_doc = {
-        "proxies": [item["clash"] for item in pinned if item.get("clash")],
-        "proxy-groups": [{
-            "name": "Белый список",
-            "type": "select",
-            "proxies": [item["display_name"] for item in pinned if item.get("clash")],
-        }],
-    }
-    with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
-        yaml.safe_dump(clash_doc, f, allow_unicode=True, sort_keys=False)
-    pattng_docs = [item["pattng"] for item in pinned]
-    with open(os.path.join(OUT_DIR, "pattng-bs.json"), "w", encoding="utf-8") as f:
-        json.dump(pattng_docs, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-    pattng_min = json.dumps(pattng_docs, ensure_ascii=False, separators=(",", ":"))
-    write_file("pattng-bs.min.json", pattng_min)
-    write_file(
-        "pattng-bs.b64.txt",
-        base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
-    )
+    # Dedicated whitelist subscription is written earlier from bs/*.conf.
     # Full PattNG: AWG + VIP LTE pins first, then regular nodes.
     pattng_full = [item["pattng"] for item in pinned_all]
     for n in final:
