@@ -35,17 +35,23 @@ python checker.py
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top30.txt
 
-Только серверы белого списка (WireGuard для Happ):
+Только серверы **белого списка** (отдельная подписка):
+
+PattNG:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
+
+Happ (WireGuard):
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
 
-Для **PattNG** — полная подписка (БС сверху + обычные):
+Конфиги из `bs/*.conf` переименовываются в страны с флагами
+(`Белый список | 🇩🇪 Германия`, `Белый список | LTE | 🇫🇮 Финляндия`).
+Если в имени нет страны — она берётся из хоста или IP.
+
+Для **PattNG** — полная смешанная подписка:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-full.json
-
-Только БС для PattNG:
-
-https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
 В начале подписки всегда:
 - 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
