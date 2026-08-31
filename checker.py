@@ -555,15 +555,16 @@ def awg_to_finalmask(interface):
     PattNG applies streamSettings.finalmask on WireGuard outbounds (CUSTOM JSON
     is passed to the core as-is).
     """
+    # Same recipe as the working nikita-polina JSON: I1 hex + Jc rand only.
+    # Extra I2–I5 (SIP junk in ltegerm) breaks stock PattNG Finalmask.
     noises = []
-    for key in ("I1", "I2", "I3", "I4", "I5"):
-        hx = _i1_to_hex(interface.get(key))
-        if hx:
-            noises.append({
-                "type": "hex",
-                "packet": hx,
-                "delay": "0",
-            })
+    i1_hex = _i1_to_hex(interface.get("I1"))
+    if i1_hex:
+        noises.append({
+            "type": "hex",
+            "packet": i1_hex,
+            "delay": "0",
+        })
     try:
         jc = int(interface.get("Jc") or 0)
     except Exception:
@@ -900,10 +901,27 @@ def infer_whitelist_country(filename, host):
 
 
 def load_whitelist_bs(token=""):
-    """Build the dedicated PattNG/Happ whitelist from bs/*.conf."""
+    """Build the dedicated PattNG whitelist.
+
+    Start with the three Cloudflare AWG pins from the working
+    pattng-full.json (those BS already connect in PattNG), then the ZIP
+    configs converted with the same I1+Jc Finalmask recipe.
+    """
+    items = []
+    seen = set()
+    try:
+        for item in load_pinned_awg():
+            key = (item.get("host"), item.get("port"))
+            seen.add(key)
+            item["lte"] = False
+            items.append(item)
+            print("INFO: whitelist classic pin", item["file"], "->", item["display_name"], item["host"])
+    except Exception as exc:
+        print("WARN: classic BS pins:", exc)
+
     os.makedirs(WHITELIST_DIR, exist_ok=True)
     files = sorted(glob.glob(os.path.join(WHITELIST_DIR, "*.conf")))
-    if not files:
+    if not files and not items:
         print("WARN: no whitelist configs in", WHITELIST_DIR)
         return []
     pending = []
@@ -948,8 +966,13 @@ def load_whitelist_bs(token=""):
         item["file"],
     ))
     used = {}
-    pinned = []
+    for item in items:
+        used[item["display_name"]] = used.get(item["display_name"], 0) + 1
     for item in pending:
+        key = (item["host"], item["port"])
+        if key in seen:
+            print("INFO: whitelist skip duplicate", item["file"], item["host"], item["port"])
+            continue
         geo = country_display(item["country"]) if item["country"] else "Неизвестно"
         if item["is_lte"]:
             base = "Белый список | LTE | " + geo
@@ -965,7 +988,8 @@ def load_whitelist_bs(token=""):
             continue
         dest = os.path.join(OUT_DIR, item["file"])
         shutil.copy2(item["path"], dest)
-        pinned.append({
+        seen.add(key)
+        items.append({
             "file": item["file"],
             "display_name": display_name,
             "country": item["country"],
@@ -978,7 +1002,7 @@ def load_whitelist_bs(token=""):
             "lte": item["is_lte"],
         })
         print("INFO: whitelist", item["file"], "->", display_name, item["host"])
-    return pinned
+    return items
 
 
 def write_whitelist_outputs(items):
