@@ -41,9 +41,13 @@ PattNG:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-Happ (WireGuard):
+Happ (WireGuard), имя подписки **bozya vpn**:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
+
+PattNG (имя в ссылке):
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json#bozya%20vpn
 
 Конфиги из `bs/*.conf` переименовываются в страны с флагами
 (`Белый список | 🇩🇪 Германия`, `Белый список | LTE | 🇫🇮 Финляндия`).

@@ -54,6 +54,8 @@ PINNED_AWG_CONFIGS = [
 
 # Dedicated whitelist (BS) AmneziaWG configs from the uploaded ZIP. Published
 # separately as happ-bs.txt / pattng-bs.json — not mixed into the regular sub.
+# Happ shows GitHub raw URLs as the subscription name unless profile-title is set.
+PROFILE_TITLE = "bozya vpn"
 WHITELIST_DIR = os.path.join(BASE_DIR, "bs")
 WHITELIST_FILE_COUNTRY = {
     "ltefin": "FI",
@@ -980,10 +982,12 @@ def write_whitelist_outputs(items):
     awg_uris = []
     for item in items:
         awg_uris.extend(item["uris"])
-    write_file("bs.txt", "\n".join(awg_uris))
-    write_file("happ-bs.txt", "\n".join(awg_uris))
-    write_file("bs.b64.txt", base64.b64encode(("\n".join(awg_uris) + "\n").encode("utf-8")).decode("ascii"))
-    write_file("happ-bs.b64.txt", base64.b64encode(("\n".join(awg_uris) + "\n").encode("utf-8")).decode("ascii"))
+    happ_text = happ_subscription_text(awg_uris)
+    write_file("bs.txt", happ_text)
+    write_file("happ-bs.txt", happ_text)
+    happ_b64 = base64.b64encode((happ_text + "\n").encode("utf-8")).decode("ascii")
+    write_file("bs.b64.txt", happ_b64)
+    write_file("happ-bs.b64.txt", happ_b64)
     clash_doc = {
         "proxies": [item["clash"] for item in items if item.get("clash")],
         "proxy-groups": [{
@@ -1755,6 +1759,15 @@ def lookup_country(ip, token):
     return country
 
 
+def happ_subscription_text(uris):
+    """Happ profile name: GitHub raw cannot set HTTP headers, so put it in the body."""
+    if isinstance(uris, str):
+        payload = uris.strip("\n")
+    else:
+        payload = "\n".join(uris)
+    return "#profile-title: " + PROFILE_TITLE + "\n" + payload
+
+
 def write_file(name, content):
     if not content:
         content = ""
@@ -1997,7 +2010,7 @@ def main():
     for item in pinned_all:
         pinned_uris.extend(item["uris"])
     top_lines = pinned_uris + [n["final_raw"] for n in final]
-    top_text = "\n".join(top_lines)
+    top_text = happ_subscription_text(top_lines)
     write_file("top30.txt", top_text)
     b64_text = base64.b64encode((top_text + "\n").encode("utf-8")).decode("ascii")
     write_file("top30.b64.txt", b64_text)
