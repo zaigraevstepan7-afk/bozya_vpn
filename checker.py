@@ -55,7 +55,10 @@ PINNED_AWG_CONFIGS = [
 # Dedicated whitelist (BS) AmneziaWG configs from the uploaded ZIP. Published
 # separately as happ-bs.txt / pattng-bs.json — not mixed into the regular sub.
 # Happ shows GitHub raw URLs as the subscription name unless profile-title is set.
+# vpnmx-style: HTTP header `profile-title: base64:...` (GitHub raw cannot set headers).
+# Body fallback used by Clash/Happ: `#profile-title: base64:...` (not plaintext).
 PROFILE_TITLE = "bozya vpn"
+PROFILE_TITLE_B64 = base64.b64encode(PROFILE_TITLE.encode("utf-8")).decode("ascii")
 WHITELIST_DIR = os.path.join(BASE_DIR, "bs")
 WHITELIST_FILE_COUNTRY = {
     "ltefin": "FI",
@@ -1760,12 +1763,19 @@ def lookup_country(ip, token):
 
 
 def happ_subscription_text(uris):
-    """Happ profile name: GitHub raw cannot set HTTP headers, so put it in the body."""
+    """Happ profile name. Prefer HTTP headers (see worker/); GitHub raw only has the body."""
     if isinstance(uris, str):
         payload = uris.strip("\n")
     else:
         payload = "\n".join(uris)
-    return "#profile-title: " + PROFILE_TITLE + "\n" + payload
+    # Strip a previous title block so we never stack duplicates.
+    lines = [ln for ln in payload.splitlines() if not ln.startswith("#profile-title:") and not ln.startswith("#profile-update-interval:")]
+    payload = "\n".join(lines)
+    return (
+        "#profile-title: base64:" + PROFILE_TITLE_B64 + "\n"
+        "#profile-update-interval: 1\n"
+        + payload
+    )
 
 
 def write_file(name, content):

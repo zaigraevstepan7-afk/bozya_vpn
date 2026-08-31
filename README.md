@@ -41,7 +41,7 @@ PattNG:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-Happ (WireGuard), имя подписки **bozya vpn**:
+Happ берёт имя из HTTP-заголовка `profile-title` (как у vpnmx). GitHub raw этот заголовок не отдаёт, поэтому в файле стоит `#profile-title: base64:Ym96eWEgdnBu` (**bozya vpn**). Уже добавленную подписку Happ не переименует — удали карточку и добавь ссылку заново:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
 
