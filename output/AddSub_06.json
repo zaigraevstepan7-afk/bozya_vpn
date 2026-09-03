@@ -65,8 +65,8 @@
       "settings": {
         "vnext": [
           {
-            "address": "cdn-ya.another-new-tunel.site",
-            "port": 443,
+            "address": "82.97.248.28",
+            "port": 27443,
             "users": [
               {
                 "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
@@ -78,51 +78,18 @@
         ]
       },
       "streamSettings": {
-        "network": "xhttp",
-        "xhttpSettings": {
-          "mode": "packet-up",
-          "host": "cdn-ya.another-new-tunel.site",
-          "path": "/api/v4/media/session/poll/pl",
-          "extra": {
-            "xmux": {
-              "cMaxReuseTimes": "128-256",
-              "maxConcurrency": "8-16",
-              "hKeepAlivePeriod": 30,
-              "hMaxRequestTimes": "600-1000",
-              "hMaxReusableSecs": "1800-3600"
-            },
-            "seqKey": "offset",
-            "headers": {
-              "Accept": "application/vnd.api+json, application/json, text/plain, */*",
-              "Pragma": "no-cache",
-              "Cache-Control": "no-cache",
-              "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
-            },
-            "sessionKey": "media_sid",
-            "xPaddingKey": "q",
-            "seqPlacement": "query",
-            "uplinkDataKey": "X-Playback-Token",
-            "xPaddingBytes": "48-320",
-            "xPaddingMethod": "tokenish",
-            "sessionPlacement": "path",
-            "uplinkHTTPMethod": "GET",
-            "xPaddingObfsMode": true,
-            "xPaddingPlacement": "query",
-            "scMaxBufferedPosts": 64,
-            "scMaxEachPostBytes": "1536-6144",
-            "uplinkDataPlacement": "header",
-            "scMinPostsIntervalMs": "10-30",
-            "serverMaxHeaderBytes": 32768
-          }
+        "network": "grpc",
+        "grpcSettings": {
+          "serviceName": "f30c6ffc3b",
+          "authority": "",
+          "mode": false
         },
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "cdn-ya.another-new-tunel.site",
-          "fingerprint": "firefox",
-          "alpn": [
-            "h2",
-            "http/1.1"
-          ]
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.cloudflare.com",
+          "publicKey": "3JTXMq1mxdsHAOX8TWOj0HFHmcp99b3gHEGzGtaZQhI",
+          "shortId": "291af997de3120bb",
+          "fingerprint": "firefox"
         }
       }
     },
@@ -135,5 +102,5 @@
       "protocol": "blackhole"
     }
   ],
-  "remarks": "LTE [🇷🇺 → 🇵🇱] №2"
+  "remarks": "🇦🇹 Австрия | Альтер"
 }
