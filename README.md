@@ -31,21 +31,23 @@ python checker.py
 Необязательно: добавьте в Settings -> Secrets and variables -> Actions
 секрет IPINFO_TOKEN - тогда страна узлов будет дополнительно определяться по IP.
 
-## Итоговая ссылка на подписку
+## Ссылки
 
-https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top30.txt
-
-Только серверы белого списка (WireGuard для Happ):
-
-https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
-
-Для **PattNG** — полная подписка (БС сверху + обычные):
+**PattNG — полная** (БС сверху + обычные):
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-full.json
 
-Только БС для PattNG:
+**PattNG — только белый список** (рабочие БС, JSON как в старой подписке):
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
+
+**Happ — URI-список** (обычные узлы; AWG в Happ не поднимается):
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/top30.txt
+
+**Happ — только БС WireGuard** (без Amnezia-маскировки):
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
 
 В начале подписки всегда:
 - 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
