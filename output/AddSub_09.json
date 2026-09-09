@@ -65,8 +65,8 @@
       "settings": {
         "vnext": [
           {
-            "address": "89.23.101.13",
-            "port": 28443,
+            "address": "cdn-ya.wave-inside.ru",
+            "port": 443,
             "users": [
               {
                 "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
@@ -78,18 +78,51 @@
         ]
       },
       "streamSettings": {
-        "network": "grpc",
-        "grpcSettings": {
-          "serviceName": "43e9d83178",
-          "authority": "",
-          "mode": false
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "packet-up",
+          "host": "cdn-ya.wave-inside.ru",
+          "path": "/api/v4/media/session/poll/de",
+          "extra": {
+            "xmux": {
+              "cMaxReuseTimes": "128-256",
+              "maxConcurrency": "8-16",
+              "hKeepAlivePeriod": 30,
+              "hMaxRequestTimes": "600-1000",
+              "hMaxReusableSecs": "1800-3600"
+            },
+            "seqKey": "offset",
+            "headers": {
+              "Accept": "application/vnd.api+json, application/json, text/plain, */*",
+              "Pragma": "no-cache",
+              "Cache-Control": "no-cache",
+              "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
+            },
+            "sessionKey": "media_sid",
+            "xPaddingKey": "q",
+            "seqPlacement": "query",
+            "uplinkDataKey": "X-Playback-Token",
+            "xPaddingBytes": "48-320",
+            "xPaddingMethod": "tokenish",
+            "sessionPlacement": "path",
+            "uplinkHTTPMethod": "GET",
+            "xPaddingObfsMode": true,
+            "xPaddingPlacement": "query",
+            "scMaxBufferedPosts": 64,
+            "scMaxEachPostBytes": "1536-6144",
+            "uplinkDataPlacement": "header",
+            "scMinPostsIntervalMs": "10-30",
+            "serverMaxHeaderBytes": 32768
+          }
         },
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "www.cloudflare.com",
-          "publicKey": "G5vJGCuLylJNr9BQKF6SiZ-mdVjQF68WvWeAEIj5e14",
-          "shortId": "82968c568aad6262",
-          "fingerprint": "firefox"
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "cdn-ya.wave-inside.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
         }
       }
     },
@@ -102,5 +135,5 @@
       "protocol": "blackhole"
     }
   ],
-  "remarks": "🇫🇮 Финляндия | Альтер"
+  "remarks": "LTE [🇷🇺 → 🇵🇱] №3"
 }
