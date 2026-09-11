@@ -8710,66 +8710,6 @@
     "remarks": "LTE [🇷🇺 → 🇵🇱] №3"
   },
   {
-    "remarks": "🇨🇦 Канада",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "104.17.73.206",
-              "port": 8443,
-              "users": [
-                {
-                  "id": "542fd687-5160-4f80-9223-56678567dd29",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/",
-            "headers": {
-              "Host": "8.sahanwickramasinghe.me"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "8.sahanwickramasinghe.me",
-            "fingerprint": "firefox",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
     "remarks": "🇺🇸 США",
     "log": {
       "loglevel": "warning"
@@ -8788,16 +8728,17 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "vmess",
         "settings": {
           "vnext": [
             {
-              "address": "104.17.74.206",
+              "address": "104.21.57.84",
               "port": 8443,
               "users": [
                 {
-                  "id": "542fd687-5160-4f80-9223-56678567dd29",
-                  "encryption": "none"
+                  "id": "60441548-b68e-43b2-8191-e3b884be4b3c",
+                  "alterId": 0,
+                  "security": "auto"
                 }
               ]
             }
@@ -8806,75 +8747,14 @@
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/",
+            "path": "/lMnsZUN4/",
             "headers": {
-              "Host": "8.sahanwickramasinghe.me"
+              "Host": "v2ray1.dozapp.xyz"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "8.sahanwickramasinghe.me",
-            "fingerprint": "firefox",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇨🇦 Канада-2",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "104.17.70.206",
-              "port": 8443,
-              "users": [
-                {
-                  "id": "542fd687-5160-4f80-9223-56678567dd29",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/",
-            "headers": {
-              "Host": "8.sahanwickramasinghe.me"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "8.sahanwickramasinghe.me",
-            "fingerprint": "firefox",
+            "serverName": "v2ray1.dozapp.xyz",
             "allowInsecure": false
           }
         }
@@ -8950,7 +8830,67 @@
     }
   },
   {
-    "remarks": "🇺🇸 США-3",
+    "remarks": "🇨🇦 Канада",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "104.17.77.77",
+              "port": 8443,
+              "users": [
+                {
+                  "id": "60441548-b68e-43b2-8191-e3b884be4b3c",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/lMnsZUN4/",
+            "headers": {
+              "Host": "v2ray1.dozapp.xyz"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "v2ray1.dozapp.xyz",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇨🇿 Чехия",
     "log": {
       "loglevel": "warning"
     },
@@ -9010,7 +8950,7 @@
     }
   },
   {
-    "remarks": "🇺🇸 США-4",
+    "remarks": "🇺🇸 США-3",
     "log": {
       "loglevel": "warning"
     },
@@ -9032,7 +8972,7 @@
         "settings": {
           "vnext": [
             {
-              "address": "104.21.91.53",
+              "address": "chatgpt.com",
               "port": 8443,
               "users": [
                 {
@@ -9070,127 +9010,7 @@
     }
   },
   {
-    "remarks": "🇨🇦 Канада-3",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "104.17.71.206",
-              "port": 8443,
-              "users": [
-                {
-                  "id": "542fd687-5160-4f80-9223-56678567dd29",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/",
-            "headers": {
-              "Host": "8.sahanwickramasinghe.me"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "8.sahanwickramasinghe.me",
-            "fingerprint": "firefox",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇨🇦 Канада-4",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "104.17.72.206",
-              "port": 8443,
-              "users": [
-                {
-                  "id": "542fd687-5160-4f80-9223-56678567dd29",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/",
-            "headers": {
-              "Host": "8.sahanwickramasinghe.me"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "8.sahanwickramasinghe.me",
-            "fingerprint": "firefox",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США-5",
+    "remarks": "🇺🇸 США-4",
     "log": {
       "loglevel": "warning"
     },
@@ -9250,7 +9070,7 @@
     }
   },
   {
-    "remarks": "🇨🇦 Канада-5",
+    "remarks": "🇨🇦 Канада-2",
     "log": {
       "loglevel": "warning"
     },
@@ -9310,6 +9130,66 @@
     }
   },
   {
+    "remarks": "🇺🇸 США-5",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "95.182.94.210",
+              "port": 443,
+              "users": [
+                {
+                  "id": "db50a20e-7ff5-4e70-948f-17cc9ca7c154",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/api/v1/gpu-stream/socket",
+            "headers": {
+              "Host": "renderer-stream-2-62.mirra.now"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "renderer-stream-2-62.mirra.now",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
     "remarks": "🇺🇸 США-6",
     "log": {
       "loglevel": "warning"
@@ -9332,11 +9212,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "88.216.195.13",
+              "address": "188.137.242.143",
               "port": 443,
               "users": [
                 {
-                  "id": "3c48b5f5-7766-4896-874e-b3ba1860e83a",
+                  "id": "d9d0f208-d582-41d5-bb7b-742671402810",
                   "encryption": "none",
                   "flow": "xtls-rprx-vision"
                 }
@@ -9348,11 +9228,11 @@
           "network": "tcp",
           "security": "reality",
           "realitySettings": {
-            "serverName": "w-mebel.pro",
+            "serverName": "us-main-1.hanvpn.biz",
             "fingerprint": "firefox",
             "allowInsecure": false,
-            "publicKey": "4VzPARgETZ4lJIffknTNqmfkP567FqYV94A18Be8vxQ",
-            "shortId": "837f454e9c8a7e19",
+            "publicKey": "RY0VjR_1hwb6oO9FvhRvFOjf4iLfYC95xagmDdk2fCA",
+            "shortId": "54b5a7681806bc97",
             "spiderX": ""
           }
         }
@@ -9369,182 +9249,6 @@
   },
   {
     "remarks": "🇺🇸 США-7",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "147.182.212.232",
-              "port": 56565,
-              "users": [
-                {
-                  "id": "7b188eea-b08f-42c2-bac7-d3b0e74218b8",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "www.paypal.com",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "Td03Ae-cuYLq4xg7MSps58c_yRUcbbwtZLXm0ywabjY",
-            "shortId": "",
-            "spiderX": ""
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США-8",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "145.63.136.220",
-              "port": 443,
-              "users": [
-                {
-                  "id": "d9d0f208-d582-41d5-bb7b-742671402810",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "us-main-2.hanvpn.biz",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "PBdrT4IGQ9dXoz3Sb52kGRUb22OoHF4jTtTq_5K3AWc",
-            "shortId": "95f904b1e977e5cb",
-            "spiderX": ""
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇨🇦 Канада-6",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "mktossl.com",
-              "port": 8443,
-              "users": [
-                {
-                  "id": "542fd687-5160-4f80-9223-56678567dd29",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/",
-            "headers": {
-              "Host": "8.sahanwickramasinghe.me"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "8.sahanwickramasinghe.me",
-            "fingerprint": "",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США-9",
     "log": {
       "loglevel": "warning"
     },
@@ -9588,6 +9292,583 @@
             "publicKey": "PBdrT4IGQ9dXoz3Sb52kGRUb22OoHF4jTtTq_5K3AWc",
             "shortId": "95f904b1e977e5cb",
             "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇩🇪 Германия",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "2.26.227.57",
+              "port": 443,
+              "users": [
+                {
+                  "id": "1f50163a-33c9-4ef8-b5da-fa1b3694d9a7",
+                  "encryption": "none"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "xhttp",
+          "xhttpSettings": {
+            "path": "/assets/media/4e7b91",
+            "host": "",
+            "mode": "auto"
+          },
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "cl-77.file-rkat.online",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "vefXz-O5G9tnwKRwczX4CCOcxSadtNzA4bBWw7Brzys",
+            "shortId": "2859c43323bbeba3",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇳🇱 Нидерланды",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "31.76.252.17",
+              "port": 443,
+              "users": [
+                {
+                  "id": "1f50163a-33c9-4ef8-b5da-fa1b3694d9a7",
+                  "encryption": "none"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "xhttp",
+          "xhttpSettings": {
+            "path": "/assets/media/7c2a83",
+            "host": "",
+            "mode": "auto"
+          },
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "cl-78.file-rkat.online",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "tbKg89n1kirBQbHyexrBIH21iHS0JigQnPqits499R4",
+            "shortId": "f7c8ee5aa55993a0",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇳🇱 Нидерланды-2",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "31.76.252.118",
+              "port": 443,
+              "users": [
+                {
+                  "id": "1f50163a-33c9-4ef8-b5da-fa1b3694d9a7",
+                  "encryption": "none",
+                  "flow": "xtls-rprx-vision"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "ir-012.rita-cloud.com",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "rqxv2mDuaBynNjatS49r8sjoxv3u2EjAWHzKFwF-YTE",
+            "shortId": "6fa5d699cc6a6b66",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇳🇱 Нидерланды-3",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "153.80.249.202",
+              "port": 443,
+              "users": [
+                {
+                  "id": "1f50163a-33c9-4ef8-b5da-fa1b3694d9a7",
+                  "encryption": "none",
+                  "flow": "xtls-rprx-vision"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "nl-01.file-rkat.online",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "YTjOmY3NKXNEuS7WhI7hEZvLRbNmbfhaEb7q2gjc-Eo",
+            "shortId": "5d7cb73d7d43add3",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇬🇧 Великобритания",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "185.137.223.71",
+              "port": 443,
+              "users": [
+                {
+                  "id": "db50a20e-7ff5-4e70-948f-17cc9ca7c154",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/api/v1/gpu-stream/socket",
+            "headers": {
+              "Host": "renderer-stream-2-62.mirra.now"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "renderer-stream-2-62.mirra.now",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇳🇱 Нидерланды-4",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "31.77.149.204",
+              "port": 443,
+              "users": [
+                {
+                  "id": "c09cfd91-b234-4998-9bed-a0211b7f5c3c",
+                  "encryption": "none",
+                  "flow": "xtls-rprx-vision"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "nl.yservice.help",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "-qLezG1nUEtvOJi-Ra7WRYv-aHkv3PSefEuXpWV2G04",
+            "shortId": "abcd1234",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇩🇪 Германия-2",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "162.248.166.35",
+              "port": 443,
+              "users": [
+                {
+                  "id": "d92b6509-8b63-4505-b3a2-1dc5b1c014ac",
+                  "encryption": "none",
+                  "flow": "xtls-rprx-vision"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "www.caradisiac.com",
+            "fingerprint": "edge",
+            "allowInsecure": false,
+            "publicKey": "NYG48Fv1MF3SqOpHwoa4GqJH5IJrocSrwWzrffY-tCk",
+            "shortId": "c6dc8abb0235dc05",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇬🇧 Великобритания-2",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "66.90.104.42",
+              "port": 2083,
+              "users": [
+                {
+                  "id": "cd3bb7d9-7df3-4644-ac05-c260990ac277",
+                  "encryption": "none"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "grpc",
+          "grpcSettings": {
+            "serviceName": "vless"
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇺🇸 США-8",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "80.74.25.110",
+              "port": 443,
+              "users": [
+                {
+                  "id": "db50a20e-7ff5-4e70-948f-17cc9ca7c154",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/api/v1/gpu-stream/socket",
+            "headers": {
+              "Host": "renderer-stream-2-62.mirra.now"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "renderer-stream-2-62.mirra.now",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇩🇪 Германия-3",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "hysteria2",
+        "settings": {
+          "servers": [
+            {
+              "address": "gaming-02.file-rkat.online",
+              "port": 443,
+              "password": "1f50163a-33c9-4ef8-b5da-fa1b3694d9a7",
+              "obfs": "salamander",
+              "obfsPassword": "Gu6pXCv92h4xOketS5_0n3GV"
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "hysteria",
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "gaming-02.file-rkat.online",
+            "allowInsecure": false
           }
         }
       },
