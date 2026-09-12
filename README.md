@@ -47,7 +47,7 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-**bozya new** (🇫🇷 Games + 🇩🇪 LTE обход) — Happ:
+**bozya new** (🇫🇷 Games + 🇩🇪 LTE обход + все сервера Sevka, включая 🇳🇱 Amsterdam 10 Гб/с) — Happ:
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.txt
 

@@ -69,13 +69,14 @@ MIN_NEBULA_BS = 5
 ADDSUB_SUB_URL = "https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF"
 ADDSUB_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + ADDSUB_SUB_URL
 
-# Dedicated subscription "bozya new" — user-provided VLESS, not mixed into top30.
+# Dedicated subscription "bozya new" — user-provided VLESS + Sevka dump, not mixed into top30.
 BOZYA_NEW_TITLE = "bozya new"
 BOZYA_NEW_TITLE_B64 = base64.b64encode(BOZYA_NEW_TITLE.encode("utf-8")).decode("ascii")
 BOZYA_NEW_URIS = [
     "vless://42d932cb-8768-41de-b57b-299252a493d2@95.133.247.18:8443?flow=xtls-rprx-vision&security=reality&fp=firefox&sni=fr.atlanta-api.com&pbk=dJqaQL_kSl2DFR7Dx3igZXhPuw1uW9d7XejtyYSvkGg&sid=aaa2ba7d45c12957#%F0%9F%87%AB%F0%9F%87%B7%20Games%20%E2%9B%B1%EF%B8%8F",
     "vless://82282910-54a0-0032-b2df-86bfbce8ed36@95.143.188.10:443?security=reality&sni=git.medrocket.ru&fp=safari&pbk=YHPoUNxsml4z6pYt-7djOb1lqnBjxCk4-2mk84pveyc&sid=3b5b38669a1a51c0&type=xhttp&headerType=none&path=/repository&encryption=none#%F0%9F%87%A9%F0%9F%87%AA%20LTE%20-%20%D0%9E%D0%B1%D1%85%D0%BE%D0%B4%20%D0%B3%D0%BB%D1%83%D1%88%D0%B8%D0%BB%D0%BE%D0%BA",
 ]
+SEVKA_SUB_URL = "https://subsock5.sevka.xyz/api/sub/zRwup0WXRWP9JhMx"
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
@@ -1595,19 +1596,62 @@ def write_file(name, content):
         f.write(content)
 
 
+def _node_key(uri):
+    node = parse_node(uri)
+    if not node:
+        return None
+    return (node.get("scheme"), node.get("host"), int(node.get("port") or 0))
+
+
+def fetch_sevka_uris():
+    """Pull every share URI from the Sevka 10GB subscription."""
+    lines = []
+    seen = set()
+    for ua in ("HiddifyNext/2.0", "HiddifyNext/3.0.0", "v2rayNG/1.8.0"):
+        try:
+            resp = requests.get(
+                SEVKA_SUB_URL,
+                timeout=30,
+                headers={
+                    "User-Agent": ua,
+                    "Accept": "text/plain,application/json,*/*",
+                    "x-hwid": SUB_HWID,
+                    "X-HWID": SUB_HWID,
+                },
+            )
+            resp.raise_for_status()
+            resp.encoding = "utf-8"
+            for uri in extract_nodes(resp.text):
+                if uri not in seen:
+                    seen.add(uri)
+                    lines.append(uri)
+        except Exception as exc:
+            print("WARN: sevka fetch failed", ua, str(exc))
+    print("INFO: sevka nodes", len(lines))
+    return lines
+
+
 def write_bozya_new_subscription():
     """Always publish the dedicated Happ + PattNG 'bozya new' list."""
+    uris = list(BOZYA_NEW_URIS)
+    seen = {_node_key(u) for u in uris if _node_key(u)}
+    for extra in fetch_sevka_uris():
+        key = _node_key(extra)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        uris.append(extra)
     happ = [
         "#profile-title: base64:" + BOZYA_NEW_TITLE_B64,
         "#profile-update-interval: 1",
-    ] + list(BOZYA_NEW_URIS)
+    ] + uris
     write_file("bozya-new.txt", "\n".join(happ))
     write_file(
         "bozya-new.b64.txt",
         base64.b64encode(("\n".join(happ) + "\n").encode("utf-8")).decode("ascii"),
     )
     docs = []
-    for uri in BOZYA_NEW_URIS:
+    for uri in uris:
         node = parse_node(uri)
         remarks = (node or {}).get("name") or "bozya new"
         converted = share_uri_to_pattng_json(uri, remarks)
@@ -1619,7 +1663,7 @@ def write_bozya_new_subscription():
         json.dump(docs, f, ensure_ascii=False, indent=2)
         f.write("\n")
     write_file("bozya-new.min.json", json.dumps(docs, ensure_ascii=False, separators=(",", ":")))
-    print("INFO: wrote bozya new", len(BOZYA_NEW_URIS), "servers")
+    print("INFO: wrote bozya new", len(uris), "servers")
 
 
 def main():
