@@ -71,6 +71,12 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozy
 - Nebula Curse `https://sub.nebulacurse.space/W83--xXdonEXYRBB/`
 - addsub `https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF` (без Германии)
 
+Источники **bozya new** (ровно 40 живых, мёртвые выкидываются):
+- закреплённые Games + LTE
+- Sevka `https://subsock5.sevka.xyz/api/sub/zRwup0WXRWP9JhMx`
+- wepogp HWID-bypass (Sigrid + Shaman)
+- 8 лучших из Tunpass `https://tunpass.online/sub/2d90a93c2019cb97`
+
 GitHub Actions обновляет подписку каждые 4 часа.
 
 Happ/Xray не умеют AmneziaWG 2.0. PattNG получает маскировку через Finalmask.
