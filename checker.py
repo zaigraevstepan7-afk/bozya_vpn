@@ -77,6 +77,12 @@ BOZYA_NEW_URIS = [
     "vless://82282910-54a0-0032-b2df-86bfbce8ed36@95.143.188.10:443?security=reality&sni=git.medrocket.ru&fp=safari&pbk=YHPoUNxsml4z6pYt-7djOb1lqnBjxCk4-2mk84pveyc&sid=3b5b38669a1a51c0&type=xhttp&headerType=none&path=/repository&encryption=none#%F0%9F%87%A9%F0%9F%87%AA%20LTE%20-%20%D0%9E%D0%B1%D1%85%D0%BE%D0%B4%20%D0%B3%D0%BB%D1%83%D1%88%D0%B8%D0%BB%D0%BE%D0%BA",
 ]
 SEVKA_SUB_URL = "https://subsock5.sevka.xyz/api/sub/zRwup0WXRWP9JhMx"
+WEPOGP_SUB_URLS = [
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGQtmHz91ER2Gsf9j8ro4aENKelQom7dBGSEIW11PuLnbJGqHulnnMD/AW2RrnHWKlWFJxvUtqF01SLDdwqY%2Bj9MB2RSD%2BDWEqu7KmBMo/8DS",
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=DWz0JA72EnxJrrs/CJLy7aismtmBwua4cqKFi0mUYqQ8th07SdUn6Hjun%2B0zfvfbFj8G0AJXZv7npLGimR3l9lP2aTVt6r8HRHJwc/RUodEUAu2KLGCTtL0Be9JeMazpww7L14dx9WLo4eIkwlycx3ucmRrws0tlTEt3SZ9%2BMH4%3D",
+]
+TUNPASS_SUB_URL = "https://tunpass.online/sub/2d90a93c2019cb97"
+BOZYA_NEW_TARGET = 40
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
@@ -1603,44 +1609,216 @@ def _node_key(uri):
     return (node.get("scheme"), node.get("host"), int(node.get("port") or 0))
 
 
-def fetch_sevka_uris():
-    """Pull every share URI from the Sevka 10GB subscription."""
+def _fetch_sub_text(url, user_agent):
+    resp = requests.get(
+        url,
+        timeout=35,
+        headers={
+            "User-Agent": user_agent,
+            "Accept": "text/plain,application/json,*/*",
+            "x-hwid": SUB_HWID,
+            "X-HWID": SUB_HWID,
+        },
+        verify=False,
+    )
+    resp.raise_for_status()
+    resp.encoding = "utf-8"
+    return resp.text
+
+
+def fetch_share_uris(url, label="sub"):
+    """Collect share URIs plus vless/hy2/vmess extracted from Happ JSON."""
     lines = []
     seen = set()
-    for ua in ("HiddifyNext/2.0", "HiddifyNext/3.0.0", "v2rayNG/1.8.0"):
+    for ua in ("HiddifyNext/3.0.0", "HiddifyNext/2.0", "Happ/Android", "v2rayNG/1.8.0"):
         try:
-            resp = requests.get(
-                SEVKA_SUB_URL,
-                timeout=30,
-                headers={
-                    "User-Agent": ua,
-                    "Accept": "text/plain,application/json,*/*",
-                    "x-hwid": SUB_HWID,
-                    "X-HWID": SUB_HWID,
-                },
-            )
-            resp.raise_for_status()
-            resp.encoding = "utf-8"
-            for uri in extract_nodes(resp.text):
-                if uri not in seen:
-                    seen.add(uri)
-                    lines.append(uri)
+            text = _fetch_sub_text(url, ua)
         except Exception as exc:
-            print("WARN: sevka fetch failed", ua, str(exc))
-    print("INFO: sevka nodes", len(lines))
+            print("WARN:", label, "fetch failed", ua, str(exc))
+            continue
+        for uri in extract_nodes(text):
+            if uri not in seen:
+                seen.add(uri)
+                lines.append(uri)
+        blob = text.lstrip()
+        if blob.startswith("[") or blob.startswith("{"):
+            try:
+                data = json.loads(text)
+            except Exception:
+                data = None
+            items = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                rem = item.get("remarks") or label
+                outs = [
+                    o for o in (item.get("outbounds") or [])
+                    if isinstance(o, dict) and o.get("protocol") not in (None, "freedom", "blackhole", "dns")
+                ]
+                for i, ob in enumerate(outs):
+                    name = rem if len(outs) == 1 else rem + " #" + str(i + 1)
+                    proto = (ob.get("protocol") or "").lower()
+                    uri = None
+                    if proto == "vless":
+                        uri = custom_json_to_vless_uri({"remarks": name, "outbounds": [ob]}, name)
+                    elif proto == "vmess":
+                        converted = share_uri_to_pattng_json  # keep lint quiet
+                        uri = _vmess_outbound_to_uri(ob, name)
+                    elif proto in ("hysteria", "hysteria2"):
+                        uri = _hysteria_outbound_to_uri(ob, name)
+                    if uri and uri not in seen:
+                        seen.add(uri)
+                        lines.append(uri)
+    print("INFO:", label, "nodes", len(lines))
     return lines
 
 
+def _vmess_outbound_to_uri(ob, name):
+    try:
+        vnext = ((ob.get("settings") or {}).get("vnext") or [{}])[0]
+        user = (vnext.get("users") or [{}])[0]
+        stream = ob.get("streamSettings") or {}
+        tls = stream.get("tlsSettings") or stream.get("realitySettings") or {}
+        ws = stream.get("wsSettings") or {}
+        data = {
+            "v": "2",
+            "ps": name,
+            "add": vnext.get("address") or "",
+            "port": str(vnext.get("port") or 443),
+            "id": user.get("id") or "",
+            "aid": str(user.get("alterId") or 0),
+            "scy": user.get("security") or "auto",
+            "net": stream.get("network") or "tcp",
+            "type": "none",
+            "host": (ws.get("headers") or {}).get("Host") or "",
+            "path": ws.get("path") or "",
+            "tls": "tls" if stream.get("security") in ("tls", "reality") else "",
+            "sni": tls.get("serverName") or "",
+            "fp": tls.get("fingerprint") or "",
+        }
+        if not data["add"] or not data["id"]:
+            return None
+        payload = base64.urlsafe_b64encode(json.dumps(data, ensure_ascii=False).encode("utf-8")).decode("ascii")
+        return "vmess://" + payload
+    except Exception:
+        return None
+
+
+def _hysteria_outbound_to_uri(ob, name):
+    try:
+        st = ob.get("settings") or {}
+        stream = ob.get("streamSettings") or {}
+        tls = stream.get("tlsSettings") or {}
+        hy = stream.get("hysteriaSettings") or {}
+        server = (st.get("servers") or [None])[0] or {}
+        host = st.get("address") or server.get("address") or ""
+        port = st.get("port") or server.get("port") or 443
+        auth = hy.get("auth") or st.get("auth") or server.get("password") or server.get("auth") or ""
+        sni = tls.get("serverName") or host
+        if not host or not auth:
+            return None
+        q = _encode_query([("sni", sni), ("insecure", "0")])
+        return "hysteria2://" + quote(str(auth), safe="") + "@" + host + ":" + str(port) + "/?" + q + "#" + quote(name, safe="")
+    except Exception:
+        return None
+
+
+def fetch_sevka_uris():
+    return fetch_share_uris(SEVKA_SUB_URL, "sevka")
+
+
+def _probe_uri_live(uri):
+    node = parse_node(uri)
+    if not node:
+        return False, None
+    _ok, samples = probe(node["host"], node["port"], attempts=4, warmup=True)
+    if len(samples) < 2:
+        return False, None
+    med, _jit, _worst = latency_stats(samples)
+    return True, med
+
+
 def write_bozya_new_subscription():
-    """Always publish the dedicated Happ + PattNG 'bozya new' list."""
-    uris = list(BOZYA_NEW_URIS)
-    seen = {_node_key(u) for u in uris if _node_key(u)}
-    for extra in fetch_sevka_uris():
-        key = _node_key(extra)
-        if not key or key in seen:
+    """Publish Happ + PattNG 'bozya new': live nodes only, target 40."""
+    buckets = [
+        ("pin", list(BOZYA_NEW_URIS)),
+        ("sevka", fetch_sevka_uris()),
+        ("wepogp", []),
+        ("tunpass", fetch_share_uris(TUNPASS_SUB_URL, "tunpass")),
+    ]
+    wepo = []
+    for i, url in enumerate(WEPOGP_SUB_URLS, start=1):
+        wepo.extend(fetch_share_uris(url, "wepogp-" + str(i)))
+    buckets[2] = ("wepogp", wepo)
+
+    ranked = []
+    seen = set()
+    prio = {"pin": 0, "sevka": 1, "wepogp": 2, "tunpass": 3}
+    jobs = []
+    for src, uris in buckets:
+        for uri in uris:
+            key = _node_key(uri)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            jobs.append((src, uri, key))
+
+    def one(job):
+        src, uri, key = job
+        node = parse_node(uri)
+        live, med = _probe_uri_live(uri)
+        name = (node or {}).get("name") or ""
+        return {
+            "src": src,
+            "uri": uri,
+            "key": key,
+            "live": live,
+            "med": med,
+            "name": name,
+            "ru": bool(is_ru(name)),
+        }
+
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        rows = list(pool.map(one, jobs))
+
+    keep = []
+    for row in rows:
+        if not row["live"]:
+            print("INFO: drop dead bozya-new", row["src"], row["name"])
             continue
-        seen.add(key)
-        uris.append(extra)
+        if row["src"] != "pin" and row["ru"]:
+            print("INFO: skip RU bozya-new", row["name"])
+            continue
+        keep.append(row)
+
+    keep.sort(key=lambda r: (prio.get(r["src"], 9), r["med"] if r["med"] is not None else 9999.0, r["name"]))
+    pins = [r for r in keep if r["src"] in ("pin", "sevka")]
+    wepo = [r for r in keep if r["src"] == "wepogp"]
+    tun = [r for r in keep if r["src"] == "tunpass"]
+    tun_best = tun[:8]
+    selected = pins + tun_best
+    room = max(0, BOZYA_NEW_TARGET - len(selected))
+    selected.extend(wepo[:room])
+    if len(selected) < BOZYA_NEW_TARGET:
+        leftover = [r for r in tun[8:] + wepo[room:] if r not in selected]
+        selected.extend(leftover[: BOZYA_NEW_TARGET - len(selected)])
+    selected = selected[:BOZYA_NEW_TARGET]
+    uris = [r["uri"] for r in selected]
+    print(
+        "INFO: bozya-new selected",
+        len(uris),
+        "/",
+        BOZYA_NEW_TARGET,
+        "pin/sevka",
+        len(pins),
+        "tunpass",
+        sum(1 for r in selected if r["src"] == "tunpass"),
+        "wepogp",
+        sum(1 for r in selected if r["src"] == "wepogp"),
+        "live",
+        len(keep),
+    )
+
     happ = [
         "#profile-title: base64:" + BOZYA_NEW_TITLE_B64,
         "#profile-update-interval: 1",
