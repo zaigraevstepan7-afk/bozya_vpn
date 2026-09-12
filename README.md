@@ -47,6 +47,18 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
+**bozya new** (🇫🇷 Games + 🇩🇪 LTE обход) — Happ:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.txt
+
+Добавить в Happ:
+
+`happ://add/https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.txt`
+
+PattNG:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.json
+
 В начале подписки всегда:
 - 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
 - живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются)

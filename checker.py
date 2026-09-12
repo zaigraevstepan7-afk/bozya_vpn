@@ -69,6 +69,14 @@ MIN_NEBULA_BS = 5
 ADDSUB_SUB_URL = "https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF"
 ADDSUB_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + ADDSUB_SUB_URL
 
+# Dedicated subscription "bozya new" — user-provided VLESS, not mixed into top30.
+BOZYA_NEW_TITLE = "bozya new"
+BOZYA_NEW_TITLE_B64 = base64.b64encode(BOZYA_NEW_TITLE.encode("utf-8")).decode("ascii")
+BOZYA_NEW_URIS = [
+    "vless://42d932cb-8768-41de-b57b-299252a493d2@95.133.247.18:8443?flow=xtls-rprx-vision&security=reality&fp=firefox&sni=fr.atlanta-api.com&pbk=dJqaQL_kSl2DFR7Dx3igZXhPuw1uW9d7XejtyYSvkGg&sid=aaa2ba7d45c12957#%F0%9F%87%AB%F0%9F%87%B7%20Games%20%E2%9B%B1%EF%B8%8F",
+    "vless://82282910-54a0-0032-b2df-86bfbce8ed36@95.143.188.10:443?security=reality&sni=git.medrocket.ru&fp=safari&pbk=YHPoUNxsml4z6pYt-7djOb1lqnBjxCk4-2mk84pveyc&sid=3b5b38669a1a51c0&type=xhttp&headerType=none&path=/repository&encryption=none#%F0%9F%87%A9%F0%9F%87%AA%20LTE%20-%20%D0%9E%D0%B1%D1%85%D0%BE%D0%B4%20%D0%B3%D0%BB%D1%83%D1%88%D0%B8%D0%BB%D0%BE%D0%BA",
+]
+
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
 MAX_TEST_PER_SOURCE = 80
@@ -1587,9 +1595,37 @@ def write_file(name, content):
         f.write(content)
 
 
+def write_bozya_new_subscription():
+    """Always publish the dedicated Happ + PattNG 'bozya new' list."""
+    happ = [
+        "#profile-title: base64:" + BOZYA_NEW_TITLE_B64,
+        "#profile-update-interval: 1",
+    ] + list(BOZYA_NEW_URIS)
+    write_file("bozya-new.txt", "\n".join(happ))
+    write_file(
+        "bozya-new.b64.txt",
+        base64.b64encode(("\n".join(happ) + "\n").encode("utf-8")).decode("ascii"),
+    )
+    docs = []
+    for uri in BOZYA_NEW_URIS:
+        node = parse_node(uri)
+        remarks = (node or {}).get("name") or "bozya new"
+        converted = share_uri_to_pattng_json(uri, remarks)
+        if converted:
+            docs.append(converted)
+        else:
+            print("WARN: skip PattNG convert bozya-new", remarks)
+    with open(os.path.join(OUT_DIR, "bozya-new.json"), "w", encoding="utf-8") as f:
+        json.dump(docs, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    write_file("bozya-new.min.json", json.dumps(docs, ensure_ascii=False, separators=(",", ":")))
+    print("INFO: wrote bozya new", len(BOZYA_NEW_URIS), "servers")
+
+
 def main():
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
+    write_bozya_new_subscription()
     pinned = load_pinned_awg()
     refresh_fastcone_switzerland_pin()
     refresh_griffon_france_pin()
@@ -1937,6 +1973,10 @@ def main():
             "output/summary.yaml",
             "output/clash_royale.txt",
             "output/speed.txt",
+            "output/bozya-new.txt",
+            "output/bozya-new.b64.txt",
+            "output/bozya-new.json",
+            "output/bozya-new.min.json",
         ] + ["output/" + item["file"] for item in pinned_all],
     }
     for item in pinned_all:
