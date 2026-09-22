@@ -95,7 +95,7 @@
       "settings": {
         "vnext": [
           {
-            "address": "193.233.233.155",
+            "address": "185.121.234.72",
             "port": 443,
             "users": [
               {
@@ -111,12 +111,120 @@
         "network": "xhttp",
         "xhttpSettings": {
           "mode": "auto",
-          "host": "fl-au-21-09.hello-there.ru",
+          "host": "ned-22-09.hello-there.ru",
           "path": "/xh"
         },
         "security": "tls",
         "tlsSettings": {
-          "serverName": "fl-au-21-09.hello-there.ru",
+          "serverName": "ned-22-09.hello-there.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "151.243.232.101",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "fl-pl-21-09.hello-there.ru",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "fl-pl-21-09.hello-there.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "94.228.172.6",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "fl-gb-21-09.hello-there.ru",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "fl-gb-21-09.hello-there.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-4",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "2.56.123.105",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "usa-22-09.hello-there.ru",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "usa-22-09.hello-there.ru",
           "fingerprint": "firefox",
           "alpn": [
             "h2",
@@ -142,7 +250,10 @@
       "destination": "https://www.gstatic.com/generate_204"
     },
     "subjectSelector": [
-      "proxy"
+      "proxy",
+      "proxy-2",
+      "proxy-3",
+      "proxy-4"
     ]
   },
   "remarks": "🇪🇺 Автовыбор + Невидимый VPN"
