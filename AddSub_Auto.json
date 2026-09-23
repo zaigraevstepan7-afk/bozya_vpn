@@ -1,0 +1,223 @@
+{
+  "dns": {
+    "servers": [
+      "1.1.1.1",
+      "1.0.0.1"
+    ],
+    "queryStrategy": "UseIPv4"
+  },
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "protocol": [
+          "bittorrent"
+        ],
+        "outboundTag": "block"
+      },
+      {
+        "port": 443,
+        "type": "field",
+        "network": "udp",
+        "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "network": "tcp,udp",
+        "balancerTag": "SUPER-AUTO"
+      }
+    ],
+    "balancers": [
+      {
+        "tag": "SUPER-AUTO",
+        "selector": [
+          "proxy"
+        ],
+        "strategy": {
+          "type": "leastLoad",
+          "settings": {
+            "expected": 3,
+            "baselines": [
+              "120ms",
+              "250ms",
+              "500ms"
+            ]
+          }
+        },
+        "fallbackTag": "proxy"
+      }
+    ],
+    "domainStrategy": "AsIs"
+  },
+  "inbounds": [
+    {
+      "tag": "socks",
+      "port": 10808,
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": {
+        "udp": true,
+        "auth": "noauth"
+      },
+      "sniffing": {
+        "enabled": true,
+        "routeOnly": false,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    },
+    {
+      "tag": "http",
+      "port": 10809,
+      "listen": "127.0.0.1",
+      "protocol": "http",
+      "settings": {
+        "allowTransparent": false
+      },
+      "sniffing": {
+        "enabled": true,
+        "routeOnly": false,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "201.34.145.223",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "nd-01.zetnik.site",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "nd-01.zetnik.site",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "195.133.63.39",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "nd-02.zetnik.site",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "nd-02.zetnik.site",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "222.167.238.82",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "fi-24-09.hello-there.ru",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "fi-24-09.hello-there.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "burstObservatory": {
+    "pingConfig": {
+      "timeout": "3s",
+      "interval": "30s",
+      "sampling": 3,
+      "destination": "https://www.gstatic.com/generate_204"
+    },
+    "subjectSelector": [
+      "proxy",
+      "proxy-2",
+      "proxy-3"
+    ]
+  },
+  "remarks": "🇪🇺 Автовыбор + Невидимый VPN"
+}
