@@ -167,6 +167,78 @@
       "settings": {
         "vnext": [
           {
+            "address": "201.34.144.25",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "nd-03.zetnik.site",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "nd-03.zetnik.site",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-4",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "129.101.120.21",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "nd-04.zetnik.site",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "nd-04.zetnik.site",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-5",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
             "address": "222.167.238.82",
             "port": 443,
             "users": [
@@ -216,7 +288,9 @@
     "subjectSelector": [
       "proxy",
       "proxy-2",
-      "proxy-3"
+      "proxy-3",
+      "proxy-4",
+      "proxy-5"
     ]
   },
   "remarks": "🇪🇺 Автовыбор + Невидимый VPN"
