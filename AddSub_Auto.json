@@ -234,6 +234,42 @@
       }
     },
     {
+      "tag": "proxy-6",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "87.121.105.108",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "se-29-09.zetnik.site",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "se-29-09.zetnik.site",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
       "tag": "direct",
       "protocol": "freedom"
     },
@@ -253,7 +289,8 @@
       "proxy",
       "proxy-2",
       "proxy-3",
-      "proxy-5"
+      "proxy-5",
+      "proxy-6"
     ]
   },
   "remarks": "🇪🇺 Автовыбор + Невидимый VPN"
