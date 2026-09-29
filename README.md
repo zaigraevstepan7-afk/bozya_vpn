@@ -47,6 +47,18 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
+**bozya new** (40 живых: Games, LTE, Sevka, wepogp, лучшие Tunpass) — Happ:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.txt
+
+Добавить в Happ:
+
+`happ://add/https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.txt`
+
+PattNG:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/bozya-new.json
+
 В начале подписки всегда:
 - 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
 - живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются)
@@ -58,6 +70,12 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 - Griffon `https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (HWID)
 - Nebula Curse `https://sub.nebulacurse.space/W83--xXdonEXYRBB/`
 - addsub `https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF` (без Германии)
+
+Источники **bozya new** (ровно 40 живых, мёртвые выкидываются):
+- закреплённые Games + LTE
+- Sevka `https://subsock5.sevka.xyz/api/sub/zRwup0WXRWP9JhMx`
+- wepogp HWID-bypass (Sigrid + Shaman)
+- 8 лучших из Tunpass `https://tunpass.online/sub/2d90a93c2019cb97`
 
 GitHub Actions обновляет подписку каждые 4 часа.
 
