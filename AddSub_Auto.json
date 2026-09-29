@@ -95,6 +95,78 @@
       "settings": {
         "vnext": [
           {
+            "address": "45.130.254.190",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "nd-25-3.anti-zaim.ru",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "nd-25-3.anti-zaim.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "45.130.254.188",
+            "port": 443,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "nd-25-2.anti-zaim.ru",
+          "path": "/xh"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "nd-25-2.anti-zaim.ru",
+          "fingerprint": "firefox",
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ]
+        }
+      }
+    },
+    {
+      "tag": "proxy-3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
             "address": "45.130.254.189",
             "port": 443,
             "users": [
@@ -126,43 +198,7 @@
       }
     },
     {
-      "tag": "proxy-2",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "45.130.254.193",
-            "port": 443,
-            "users": [
-              {
-                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
-                "encryption": "none",
-                "flow": ""
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "xhttp",
-        "xhttpSettings": {
-          "mode": "auto",
-          "host": "nd-25-5.anti-zaim.ru",
-          "path": "/xh"
-        },
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "nd-25-5.anti-zaim.ru",
-          "fingerprint": "firefox",
-          "alpn": [
-            "h2",
-            "http/1.1"
-          ]
-        }
-      }
-    },
-    {
-      "tag": "proxy-3",
+      "tag": "proxy-4",
       "protocol": "vless",
       "settings": {
         "vnext": [
@@ -189,42 +225,6 @@
         "security": "tls",
         "tlsSettings": {
           "serverName": "nd-01.zetnik.site",
-          "fingerprint": "firefox",
-          "alpn": [
-            "h2",
-            "http/1.1"
-          ]
-        }
-      }
-    },
-    {
-      "tag": "proxy-5",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "2.56.125.196",
-            "port": 443,
-            "users": [
-              {
-                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
-                "encryption": "none",
-                "flow": ""
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "xhttp",
-        "xhttpSettings": {
-          "mode": "auto",
-          "host": "pl-29-09.zetnik.site",
-          "path": "/xh"
-        },
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "pl-29-09.zetnik.site",
           "fingerprint": "firefox",
           "alpn": [
             "h2",
@@ -270,6 +270,30 @@
       }
     },
     {
+      "tag": "proxy-9",
+      "protocol": "hysteria",
+      "settings": {
+        "address": "ge-29-09.zetnik.site",
+        "port": 443,
+        "version": 2
+      },
+      "streamSettings": {
+        "network": "hysteria",
+        "hysteriaSettings": {
+          "version": 2,
+          "auth": "7b50da93-0841-4044-af6a-99bb9dcda6fc"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "ge-29-09.zetnik.site",
+          "fingerprint": "chrome",
+          "alpn": [
+            "h3"
+          ]
+        }
+      }
+    },
+    {
       "tag": "direct",
       "protocol": "freedom"
     },
@@ -289,7 +313,7 @@
       "proxy",
       "proxy-2",
       "proxy-3",
-      "proxy-5",
+      "proxy-4",
       "proxy-6"
     ]
   },
