@@ -61,24 +61,36 @@
   "outbounds": [
     {
       "tag": "proxy",
-      "protocol": "hysteria",
+      "protocol": "vless",
       "settings": {
-        "address": "pl-30-09.zetnik.site",
-        "port": 443,
-        "version": 2
+        "vnext": [
+          {
+            "address": "pl-30-09.zetnik.site",
+            "port": 8444,
+            "users": [
+              {
+                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
+                "encryption": "none",
+                "flow": ""
+              }
+            ]
+          }
+        ]
       },
       "streamSettings": {
-        "network": "hysteria",
-        "hysteriaSettings": {
-          "version": 2,
-          "auth": "7b50da93-0841-4044-af6a-99bb9dcda6fc"
+        "network": "xhttp",
+        "xhttpSettings": {
+          "mode": "auto",
+          "host": "pl-30-09.zetnik.site",
+          "path": "/xh"
         },
         "security": "tls",
         "tlsSettings": {
           "serverName": "pl-30-09.zetnik.site",
-          "fingerprint": "chrome",
+          "fingerprint": "firefox",
           "alpn": [
-            "h3"
+            "h2",
+            "http/1.1"
           ]
         }
       }
@@ -92,5 +104,5 @@
       "protocol": "blackhole"
     }
   ],
-  "remarks": "🇵🇱 Польша 30-09 Hysteria2"
+  "remarks": "🇵🇱Польша 30-09 XHTTP"
 }
