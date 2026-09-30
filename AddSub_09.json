@@ -61,31 +61,25 @@
   "outbounds": [
     {
       "tag": "proxy",
-      "protocol": "vless",
+      "protocol": "hysteria",
       "settings": {
-        "vnext": [
-          {
-            "address": "pl-30-09.zetnik.site",
-            "port": 443,
-            "users": [
-              {
-                "id": "7b50da93-0841-4044-af6a-99bb9dcda6fc",
-                "encryption": "none",
-                "flow": "xtls-rprx-vision"
-              }
-            ]
-          }
-        ]
+        "address": "au-01-10.zetnik.site",
+        "port": 443,
+        "version": 2
       },
       "streamSettings": {
-        "network": "tcp",
-        "tcpSettings": {},
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "pl-30-09.zetnik.site",
-          "publicKey": "V4kO-_Z6PobCjSUSj55Uo5N_KdOh88Krgm7kL9L5Fwg",
-          "shortId": "3ab7d8ea0f774a39",
-          "fingerprint": "firefox"
+        "network": "hysteria",
+        "hysteriaSettings": {
+          "version": 2,
+          "auth": "7b50da93-0841-4044-af6a-99bb9dcda6fc"
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "au-01-10.zetnik.site",
+          "fingerprint": "chrome",
+          "alpn": [
+            "h3"
+          ]
         }
       }
     },
@@ -98,5 +92,5 @@
       "protocol": "blackhole"
     }
   ],
-  "remarks": "🇵🇱 Польша 30-09 Reality"
+  "remarks": "🇦🇹Австралия 01-10 Hysteria2"
 }
