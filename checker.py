@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import base64
 import glob
+import ipaddress
 import json
 import os
 import re
@@ -47,14 +48,6 @@ SOURCES = [
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGQtmHz91ER2Gsf9j8ro4aENKelQom7dBGSEIW11PuLnbJGqHulnnMD/AW2RrnHWKlWFJxvUtqF01SLDdwqY%2Bj9MB2RSD%2BDWEqu7KmBMo/8DS",
     "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=DWz0JA72EnxJrrs/CJLy7aismtmBwua4cqKFi0mUYqQ8th07SdUn6Hjun%2B0zfvfbFj8G0AJXZv7npLGimR3l9lP2aTVt6r8HRHJwc/RUodEUAu2KLGCTtL0Be9JeMazpww7L14dx9WLo4eIkwlycx3ucmRrws0tlTEt3SZ9%2BMH4%3D",
     "https://tunpass.online/sub/2d90a93c2019cb97",
-    # Public lists that publish nodes after a real proxied HTTP check.
-    "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/verified/configs.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-NL.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-DE.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-PL.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-FR.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-EE.txt",
-    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-SE.txt",
 ]
 
 # Stable device id for panels that require HWID (Happ / Hiddify / Remnawave).
@@ -87,7 +80,7 @@ ADDSUB_HAPP_URL = "https://p.kfwl.lol/ua=happ/os=android/" + ADDSUB_SUB_URL
 
 OUT_DIR = os.path.join(BASE_DIR, "output")
 TOP_N = 30
-MAX_TEST_PER_SOURCE = 80
+MAX_TEST_PER_SOURCE = 160
 MAX_PER_SOURCE_FINAL = 15
 MIN_SUCCESS = 0.8
 ATTEMPTS = 5
@@ -100,13 +93,30 @@ PROBE_WORKERS = 16
 REPROBE_TOP = 60
 HTTP_PROBE_WORKERS = 6
 HTTP_PROBE_TIMEOUT = 8
-HTTP_PROBE_MAX = 140
-HTTP_PROBE_PER_SOURCE = 12
+HTTP_PROBE_MAX = 100
+HTTP_PROBE_PER_SOURCE = 40
 XRAY_ZIP_URL = "https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-64.zip"
 HTTP_PROBE_URLS = [
     "https://www.gstatic.com/generate_204",
     "https://cp.cloudflare.com/generate_204",
 ]
+# Anycast edges that answer generate_204 from a US probe but do not work in Happ.
+CDN_NETS = [
+    ipaddress.ip_network("104.16.0.0/12"),
+    ipaddress.ip_network("172.64.0.0/13"),
+    ipaddress.ip_network("162.158.0.0/15"),
+    ipaddress.ip_network("108.162.192.0/18"),
+    ipaddress.ip_network("141.101.64.0/18"),
+    ipaddress.ip_network("190.93.240.0/20"),
+    ipaddress.ip_network("188.114.96.0/20"),
+    ipaddress.ip_network("197.234.240.0/22"),
+    ipaddress.ip_network("198.41.128.0/17"),
+    ipaddress.ip_network("151.101.0.0/16"),
+    ipaddress.ip_network("199.232.0.0/16"),
+    ipaddress.ip_network("104.64.0.0/10"),
+]
+_IP_BODY = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
+_LOCAL_IP = None
 # Checker runs in a US datacenter. Prefer regions that stay fast for the subscription users.
 NEAR_GEO = ["FI", "EE", "LV", "LT", "PL", "DE", "NL", "SE", "CZ", "FR", "UA", "CH", "DK", "NO", "GB"]
 _XRAY_BIN = None
@@ -1622,11 +1632,12 @@ def ensure_xray():
 
 
 def _curl_via_socks(port, url, timeout=HTTP_PROBE_TIMEOUT):
+    """Return http code, body, and elapsed ms through a local socks port."""
     start = time.monotonic()
     try:
         proc = subprocess.run(
             [
-                "curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+                "curl", "-sS", "-w", "\n%{http_code}",
                 "--max-time", str(int(timeout)),
                 "--connect-timeout", "4",
                 "--socks5-hostname", "127.0.0.1:%d" % port,
@@ -1636,9 +1647,58 @@ def _curl_via_socks(port, url, timeout=HTTP_PROBE_TIMEOUT):
             text=True,
             timeout=timeout + 4,
         )
-        return (proc.stdout or "").strip(), (time.monotonic() - start) * 1000.0
+        text = proc.stdout or ""
+        if "\n" in text:
+            body, code = text.rsplit("\n", 1)
+        else:
+            body, code = "", text
+        return code.strip(), body.strip(), (time.monotonic() - start) * 1000.0
     except Exception:
-        return "000", None
+        return "000", "", None
+
+
+def _local_egress_ip():
+    global _LOCAL_IP
+    if _LOCAL_IP is not None:
+        return _LOCAL_IP
+    try:
+        resp = requests.get("https://api.ipify.org", timeout=8)
+        _LOCAL_IP = (resp.text or "").strip()
+    except Exception:
+        _LOCAL_IP = ""
+    return _LOCAL_IP
+
+
+def _is_cdn_ip(ip):
+    if not ip or ":" in str(ip):
+        return False
+    try:
+        addr = ipaddress.ip_address(str(ip))
+    except Exception:
+        return False
+    return any(addr in net for net in CDN_NETS)
+
+
+def share_is_junk(node):
+    """Drop share links that answer a probe but fail in Happ."""
+    raw = node.get("raw") or ""
+    low = raw.lower()
+    try:
+        port = int(node.get("port") or 0)
+    except Exception:
+        return True
+    if node.get("scheme") not in ("vless", "trojan"):
+        return True
+    if "security=reality" not in low and "security=tls" not in low:
+        return True
+    if port in (80, 8080, 8880, 2052, 2082, 2086, 2095, 8081):
+        return True
+    if "ed=2560" in low:
+        return True
+    host = node.get("host") or ""
+    if _is_cdn_ip(host):
+        return True
+    return False
 
 
 def _xray_run_http(doc, timeout=HTTP_PROBE_TIMEOUT):
@@ -1673,11 +1733,25 @@ def _xray_run_http(doc, timeout=HTTP_PROBE_TIMEOUT):
         time.sleep(0.35)
         if proc.poll() is not None:
             return False, None
+        opened = False
+        best_ms = None
         for url in HTTP_PROBE_URLS:
-            code, ms = _curl_via_socks(port, url, timeout=timeout)
+            code, _body, ms = _curl_via_socks(port, url, timeout=timeout)
             if code in ("204", "200", "301", "302"):
-                return True, ms
-        return False, None
+                opened = True
+                best_ms = ms
+                break
+        if not opened:
+            return False, None
+        code, ip_body, ip_ms = _curl_via_socks(port, "https://api.ipify.org", timeout=timeout)
+        if code != "200" or not _IP_BODY.match(ip_body or ""):
+            return False, None
+        if ip_body == _local_egress_ip():
+            return False, None
+        code, page, page_ms = _curl_via_socks(port, "https://example.com", timeout=timeout)
+        if code != "200" or "Example Domain" not in (page or ""):
+            return False, None
+        return True, page_ms or ip_ms or best_ms
     except Exception:
         return False, None
     finally:
@@ -1884,6 +1958,8 @@ def main():
                 continue
             if is_ru(node["name"]):
                 continue
+            if share_is_junk(node):
+                continue
             seen.add(key)
             node["source"] = url
             node["country"] = detect_country_from_name(node["name"])
@@ -1955,6 +2031,11 @@ def main():
         raise RuntimeError("Xray is required so top30 keeps only servers that pass real HTTP")
 
     def node_http_ok(node):
+        ip = node.get("resolved_ip") or resolve_host(node["host"])
+        node["resolved_ip"] = ip
+        if _is_cdn_ip(ip) or share_is_junk(node):
+            print("INFO: http JUNK", node["scheme"], node["host"], node["port"])
+            return False
         ok = xray_http_alive(node)
         print(
             "INFO: http",
@@ -2128,8 +2209,9 @@ def main():
         node["display_name"] = new_name
         node["final_raw"] = rename_node(node, new_name)
 
+    # Happ cannot run the 3 AmneziaWG whitelist pins. They stay in happ-bs.txt only.
     pinned_uris = []
-    for item in pinned_all:
+    for item in pinned_custom:
         pinned_uris.extend(item["uris"])
     top_lines = pinned_uris + [n["final_raw"] for n in final]
     top_text = "\n".join(top_lines)
@@ -2164,8 +2246,8 @@ def main():
         "pattng-bs.b64.txt",
         base64.b64encode(pattng_min.encode("utf-8")).decode("ascii"),
     )
-    # Full PattNG: AWG + VIP LTE pins first, then regular nodes.
-    pattng_full = [item["pattng"] for item in pinned_all]
+    # Full PattNG: working custom pins, then regular nodes. AWG whitelist is pattng-bs.json.
+    pattng_full = [item["pattng"] for item in pinned_custom]
     for n in final:
         converted = share_uri_to_pattng_json(n["final_raw"], n["display_name"])
         if converted:

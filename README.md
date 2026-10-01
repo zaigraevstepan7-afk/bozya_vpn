@@ -47,9 +47,11 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-В начале подписки всегда:
-- 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
-- живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются)
+Белый список (3 Cloudflare AWG) не входит в top30: Happ его не запускает. Он отдельно:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/happ-bs.txt
+
+В начале top30 только живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются).
 - `🇪🇺 Автовыбор` (leastPing по живым DE/NL/TH из Nebula Curse)
 - минимум 5 БС из Nebula Curse не из России (`Белый список | LTE-N · страна`)
 - все сервера addsub.site **кроме Германии** (автовыбор без DE + NL/PL/EE)
@@ -59,9 +61,8 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 - Nebula Curse `https://sub.nebulacurse.space/W83--xXdonEXYRBB/`
 - addsub `https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF` (без Германии)
 - Sevka, wepogp HWID-bypass, Tunpass
-- проверенные публичные списки: 0xRadikal verified, Au1rxx NL/DE/PL/FR/EE/SE
 
-В `top30` попадают только узлы, через которые Xray реально открывает HTTP. Мёртвые по TCP или по прокси выкидываются.
+В `top30` попадает только VLESS/Trojan с TLS или Reality, через которые открывается обычная страница, а не только generate_204. Cloudflare/Fastly и порт 80 выкидываются.
 
 GitHub Actions обновляет подписку каждые 4 часа.
 
