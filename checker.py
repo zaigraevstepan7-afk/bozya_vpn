@@ -7,10 +7,13 @@ import re
 import shutil
 import socket
 import statistics
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote, unquote, urlparse
 
@@ -39,6 +42,19 @@ SOURCES = [
     "https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc",
     # Nebula Curse: country nodes + LTE БС. Hiddify UA returns vless:// lines.
     "https://sub.nebulacurse.space/W83--xXdonEXYRBB/",
+    # Private pools already used by bozya new.
+    "https://subsock5.sevka.xyz/api/sub/zRwup0WXRWP9JhMx",
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=LoWcw85kRd%2BHRAuaIWWTGQtmHz91ER2Gsf9j8ro4aENKelQom7dBGSEIW11PuLnbJGqHulnnMD/AW2RrnHWKlWFJxvUtqF01SLDdwqY%2Bj9MB2RSD%2BDWEqu7KmBMo/8DS",
+    "https://is.wepogp.gay/bypass-hwid-lock-3z5O6BFAaJQzGlamvtSo?payload=DWz0JA72EnxJrrs/CJLy7aismtmBwua4cqKFi0mUYqQ8th07SdUn6Hjun%2B0zfvfbFj8G0AJXZv7npLGimR3l9lP2aTVt6r8HRHJwc/RUodEUAu2KLGCTtL0Be9JeMazpww7L14dx9WLo4eIkwlycx3ucmRrws0tlTEt3SZ9%2BMH4%3D",
+    "https://tunpass.online/sub/2d90a93c2019cb97",
+    # Public lists that publish nodes after a real proxied HTTP check.
+    "https://raw.githubusercontent.com/0xRadikal/Free-v2ray-Configs/main/verified/configs.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-NL.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-DE.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-PL.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-FR.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-EE.txt",
+    "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/by-country/v2ray-base64-SE.txt",
 ]
 
 # Stable device id for panels that require HWID (Happ / Hiddify / Remnawave).
@@ -82,6 +98,23 @@ MAX_JITTER_MS = 35.0
 MAX_WORST_MS = 300.0
 PROBE_WORKERS = 16
 REPROBE_TOP = 60
+HTTP_PROBE_WORKERS = 6
+HTTP_PROBE_TIMEOUT = 8
+HTTP_PROBE_MAX = 140
+HTTP_PROBE_PER_SOURCE = 12
+XRAY_ZIP_URL = "https://github.com/XTLS/Xray-core/releases/download/v25.8.3/Xray-linux-64.zip"
+HTTP_PROBE_URLS = [
+    "https://www.gstatic.com/generate_204",
+    "https://cp.cloudflare.com/generate_204",
+]
+# Checker runs in a US datacenter. Prefer regions that stay fast for the subscription users.
+NEAR_GEO = ["FI", "EE", "LV", "LT", "PL", "DE", "NL", "SE", "CZ", "FR", "UA", "CH", "DK", "NO", "GB"]
+_XRAY_BIN = None
+_XRAY_FAILED = False
+_XRAY_NEXT_PORT = 18080
+_XRAY_PORT_LOCK = threading.Lock()
+_HTTP_CACHE = {}
+_HTTP_CACHE_LOCK = threading.Lock()
 
 SCHEMES = ("vless://", "vmess://", "trojan://", "ss://", "hysteria2://", "hy2://")
 GAME_GEO = ["NL", "DE", "PL", "CZ", "RO", "FI", "SE", "SG", "JP", "US"]
@@ -658,11 +691,18 @@ def share_uri_to_pattng_json(uri, remarks=None):
             }
         elif network in ("xhttp", "splithttp"):
             stream["network"] = "xhttp"
-            stream["xhttpSettings"] = {
+            xhttp = {
                 "path": query.get("path") or "/",
                 "host": query.get("host") or "",
                 "mode": query.get("mode") or "",
             }
+            extra = query.get("extra")
+            if extra:
+                try:
+                    xhttp["extra"] = json.loads(extra)
+                except Exception:
+                    pass
+            stream["xhttpSettings"] = xhttp
         else:
             stream["network"] = "tcp"
 
@@ -793,6 +833,24 @@ def share_uri_to_pattng_json(uri, remarks=None):
                     }]
                 },
                 "streamSettings": stream_v,
+            }
+            return _pattng_shell(title, outbound)
+
+        if scheme == "ss":
+            method, password = _ss_method_password(uri)
+            if not method or not password:
+                return None
+            outbound = {
+                "tag": "proxy",
+                "protocol": "shadowsocks",
+                "settings": {
+                    "servers": [{
+                        "address": host,
+                        "port": int(port),
+                        "method": method,
+                        "password": password,
+                    }]
+                },
             }
             return _pattng_shell(title, outbound)
     except Exception:
@@ -1068,21 +1126,31 @@ def load_pinned_custom():
     return pinned
 
 
-def fetch_source(url):
+def fetch_source(url, user_agent=None):
     headers = {
-        "User-Agent": "HiddifyNext/2.0",
+        "User-Agent": user_agent or "HiddifyNext/2.0",
         "Accept": "text/plain,application/json,*/*",
         "x-hwid": SUB_HWID,
         "X-HWID": SUB_HWID,
     }
     try:
-        resp = requests.get(url, timeout=30, headers=headers)
+        resp = requests.get(url, timeout=45, headers=headers)
         resp.raise_for_status()
     except requests.exceptions.SSLError:
-        resp = requests.get(url, timeout=30, headers=headers, verify=False)
+        resp = requests.get(url, timeout=45, headers=headers, verify=False)
         resp.raise_for_status()
     resp.encoding = "utf-8"
     return resp.text
+
+
+def fetch_source_nodes(url):
+    """Fetch a subscription. Retry with a Happ/v2rayNG agent if the panel returns HTML."""
+    text = fetch_source(url)
+    lines = extract_nodes(text)
+    if lines:
+        return lines
+    text = fetch_source(url, user_agent="v2rayNG/1.8.29")
+    return extract_nodes(text)
 
 
 def refresh_griffon_france_pin():
@@ -1508,6 +1576,189 @@ def probe(host, port, attempts=ATTEMPTS, warmup=True):
     return scored_ok, samples
 
 
+def _next_socks_port():
+    global _XRAY_NEXT_PORT
+    with _XRAY_PORT_LOCK:
+        port = _XRAY_NEXT_PORT
+        _XRAY_NEXT_PORT += 1
+        return port
+
+
+def ensure_xray():
+    """Download Xray-core once so a node is kept only if HTTP works through it."""
+    global _XRAY_BIN, _XRAY_FAILED
+    if _XRAY_BIN:
+        return _XRAY_BIN
+    if _XRAY_FAILED:
+        return None
+    dest_dir = os.path.join(tempfile.gettempdir(), "xray-core")
+    dest = os.path.join(dest_dir, "xray")
+    if os.path.isfile(dest) and os.access(dest, os.X_OK):
+        _XRAY_BIN = dest
+        return dest
+    os.makedirs(dest_dir, exist_ok=True)
+    zip_path = os.path.join(dest_dir, "xray.zip")
+    last_err = None
+    for attempt in range(3):
+        try:
+            resp = requests.get(XRAY_ZIP_URL, timeout=90, stream=True)
+            resp.raise_for_status()
+            with open(zip_path, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 256):
+                    if chunk:
+                        f.write(chunk)
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extract("xray", dest_dir)
+            os.chmod(dest, 0o755)
+            _XRAY_BIN = dest
+            print("INFO: xray ready", dest)
+            return dest
+        except Exception as exc:
+            last_err = exc
+            time.sleep(2 ** attempt)
+    _XRAY_FAILED = True
+    print("WARN: xray download failed:", last_err)
+    return None
+
+
+def _curl_via_socks(port, url, timeout=HTTP_PROBE_TIMEOUT):
+    start = time.monotonic()
+    try:
+        proc = subprocess.run(
+            [
+                "curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}",
+                "--max-time", str(int(timeout)),
+                "--connect-timeout", "4",
+                "--socks5-hostname", "127.0.0.1:%d" % port,
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout + 4,
+        )
+        return (proc.stdout or "").strip(), (time.monotonic() - start) * 1000.0
+    except Exception:
+        return "000", None
+
+
+def _xray_run_http(doc, timeout=HTTP_PROBE_TIMEOUT):
+    xray = ensure_xray()
+    if not xray:
+        return False, None
+    port = _next_socks_port()
+    probe_doc = json.loads(json.dumps(doc))
+    probe_doc["log"] = {"loglevel": "error"}
+    probe_doc["inbounds"] = [{
+        "tag": "socks",
+        "port": port,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {"udp": True, "auth": "noauth"},
+    }]
+    probe_doc["routing"] = {
+        "domainStrategy": "AsIs",
+        "rules": [{"type": "field", "network": "tcp,udp", "outboundTag": "proxy"}],
+    }
+    fd, path = tempfile.mkstemp(prefix="xray-probe-", suffix=".json")
+    os.close(fd)
+    proc = None
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(probe_doc, f)
+        proc = subprocess.Popen(
+            [xray, "run", "-c", path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.35)
+        if proc.poll() is not None:
+            return False, None
+        for url in HTTP_PROBE_URLS:
+            code, ms = _curl_via_socks(port, url, timeout=timeout)
+            if code in ("204", "200", "301", "302"):
+                return True, ms
+        return False, None
+    except Exception:
+        return False, None
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.kill()
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+
+
+def _ss_method_password(uri):
+    parsed = urlparse(uri)
+    if parsed.username and parsed.password is not None:
+        return unquote(parsed.username), unquote(parsed.password)
+    blob = uri.split("://", 1)[1].split("#", 1)[0].split("?", 1)[0]
+    if "@" not in blob:
+        return None, None
+    user = unquote(blob.rsplit("@", 1)[0])
+    raw = user
+    try:
+        raw = base64.urlsafe_b64decode(user + "=" * (-len(user) % 4)).decode("utf-8")
+    except Exception:
+        pass
+    if ":" not in raw:
+        return None, None
+    method, password = raw.split(":", 1)
+    if not method or not password:
+        return None, None
+    return method, password
+
+
+def node_probe_doc(node):
+    doc = share_uri_to_pattng_json(node["raw"], node.get("name") or "probe")
+    if doc:
+        return doc
+    if node.get("scheme") != "ss":
+        return None
+    method, password = _ss_method_password(node["raw"])
+    if not method or not password:
+        return None
+    outbound = {
+        "tag": "proxy",
+        "protocol": "shadowsocks",
+        "settings": {
+            "servers": [{
+                "address": node["host"],
+                "port": int(node["port"]),
+                "method": method,
+                "password": password,
+            }]
+        },
+    }
+    return _pattng_shell(node.get("name") or "probe", outbound)
+
+
+def xray_http_alive(node):
+    key = (node.get("scheme"), node.get("host"), int(node.get("port") or 0))
+    with _HTTP_CACHE_LOCK:
+        cached = _HTTP_CACHE.get(key)
+    if cached is not None:
+        ok, ms = cached
+        if ms is not None:
+            node["http_ms"] = round(ms, 1)
+        return ok
+    doc = node_probe_doc(node)
+    if not doc:
+        ok, ms = False, None
+    else:
+        ok, ms = _xray_run_http(doc)
+    if ms is not None:
+        node["http_ms"] = round(ms, 1)
+    with _HTTP_CACHE_LOCK:
+        _HTTP_CACHE[key] = (ok, ms)
+    return ok
+
+
 def latency_stats(samples):
     if not samples:
         return None, None, None
@@ -1609,8 +1860,7 @@ def main():
     per_source = {}
     for url in SOURCES:
         try:
-            text = fetch_source(url)
-            lines = extract_nodes(text)
+            lines = fetch_source_nodes(url)
         except Exception as exc:
             print("WARN: source failed:", url, str(exc))
             lines = []
@@ -1690,8 +1940,45 @@ def main():
         rough.append(node)
 
     rough.sort(key=lambda n: n["_rough"], reverse=True)
-    confirm_list = rough[:REPROBE_TOP]
-    print("INFO: pass1 survivors:", len(rough), "| confirming top:", len(confirm_list))
+    http_pool = []
+    per_src_http = {}
+    for node in rough:
+        src = node["source"]
+        if per_src_http.get(src, 0) >= HTTP_PROBE_PER_SOURCE:
+            continue
+        per_src_http[src] = per_src_http.get(src, 0) + 1
+        http_pool.append(node)
+        if len(http_pool) >= HTTP_PROBE_MAX:
+            break
+    print("INFO: pass1 survivors:", len(rough), "| http probing:", len(http_pool))
+    if not ensure_xray():
+        raise RuntimeError("Xray is required so top30 keeps only servers that pass real HTTP")
+
+    def node_http_ok(node):
+        ok = xray_http_alive(node)
+        print(
+            "INFO: http",
+            "OK" if ok else "DEAD",
+            node["scheme"],
+            node["host"],
+            node["port"],
+        )
+        return ok
+
+    http_alive = []
+    with ThreadPoolExecutor(max_workers=HTTP_PROBE_WORKERS) as pool:
+        futs = {pool.submit(node_http_ok, n): n for n in http_pool}
+        for fut in as_completed(futs):
+            node = futs[fut]
+            try:
+                if fut.result():
+                    http_alive.append(node)
+            except Exception as exc:
+                print("WARN: http probe error", node.get("host"), exc)
+    http_alive.sort(key=lambda n: n["_rough"], reverse=True)
+    print("INFO: http alive:", len(http_alive), "of", len(http_pool))
+    confirm_list = http_alive[:REPROBE_TOP]
+    print("INFO: confirming", len(confirm_list), "http-alive nodes")
 
     def confirm_node(node):
         ok2, samples2 = probe(
@@ -1743,19 +2030,43 @@ def main():
         tested = [n for n in pool.map(enrich_node, confirm_list) if n]
 
     print("INFO: passed strict filter:", len(tested))
+    if len(tested) < TOP_N:
+        have = {(n["host"], int(n["port"])) for n in tested}
+        for node in http_alive:
+            key = (node["host"], int(node["port"]))
+            if key in have:
+                continue
+            if is_ru(node.get("name") or ""):
+                continue
+            ip = resolve_host(node["host"])
+            if not node.get("country") and ip:
+                node["country"] = lookup_country(ip, token)
+            if node.get("country") == "RU":
+                continue
+            node["resolved_ip"] = ip
+            tested.append(node)
+            have.add(key)
+            print("INFO: fill http-alive", node["scheme"], node["host"], node["port"])
+            if len(tested) >= TOP_N + 20:
+                break
+        print("INFO: after http fill:", len(tested))
 
     for node in tested:
-        med = node["median_ms"] if node["median_ms"] is not None else 300.0
+        tcp_med = node["median_ms"] if node["median_ms"] is not None else 300.0
+        # TCP connect from this runner is often <1ms even for distant servers.
+        # Rank by the real HTTP-through-proxy time when we have it.
+        med = node["http_ms"] if node.get("http_ms") else tcp_med
         jit = node["jitter_ms"] if node["jitter_ms"] is not None else 50.0
-        worst = node.get("worst_ms") if node.get("worst_ms") is not None else med
+        worst = node.get("worst_ms") if node.get("worst_ms") is not None else tcp_med
         src_index = SOURCES.index(node["source"]) if node["source"] in SOURCES else 9
-        source_bonus = max(0, 10 - src_index * 3)
+        source_bonus = max(0, 4 - src_index)
+        near_bonus = 12.0 if node.get("country") in NEAR_GEO else 0.0
         node["total_score"] = round(
-            node["success_rate"] * 120.0 - med * 0.25 - jit * 0.55 - (worst - med) * 0.15 + source_bonus,
+            node["success_rate"] * 120.0 - med * 0.35 - jit * 0.15 + source_bonus + near_bonus,
             1,
         )
         node["game_score"] = round(
-            node["success_rate"] * 120.0 - med * 0.35 - jit * 0.7 - (worst - med) * 0.2,
+            node["success_rate"] * 120.0 - med * 0.45 - jit * 0.2 + near_bonus,
             1,
         )
         node["speed_score"] = round(
@@ -1768,21 +2079,28 @@ def main():
     tested.sort(
         key=lambda n: (
             -(n["total_score"] or 0),
-            n["median_ms"] if n["median_ms"] is not None else 999.0,
+            n.get("http_ms") if n.get("http_ms") is not None else 9999.0,
             n["jitter_ms"] if n["jitter_ms"] is not None else 999.0,
         )
     )
 
-    final = []
-    per_src_count = {}
-    for node in tested:
-        src = node["source"]
-        if per_src_count.get(src, 0) >= MAX_PER_SOURCE_FINAL:
-            continue
-        per_src_count[src] = per_src_count.get(src, 0) + 1
-        final.append(node)
-        if len(final) >= TOP_N:
-            break
+    def pick_final(limit_src):
+        chosen = []
+        per_src_count = {}
+        for node in tested:
+            src = node["source"]
+            if limit_src and per_src_count.get(src, 0) >= MAX_PER_SOURCE_FINAL:
+                continue
+            per_src_count[src] = per_src_count.get(src, 0) + 1
+            chosen.append(node)
+            if len(chosen) >= TOP_N:
+                break
+        return chosen
+
+    final = pick_final(True)
+    if len(final) < TOP_N:
+        print("INFO: relax per-source cap, strict pick:", len(final))
+        final = pick_final(False)
 
     game_pick = None
     if final:
@@ -1887,6 +2205,7 @@ def main():
             "country": n["country"],
             "success_rate": n["success_rate"],
             "median_ms": n["median_ms"],
+            "http_ms": n.get("http_ms"),
             "jitter_ms": n["jitter_ms"],
             "total_score": n["total_score"],
             "game_score": n["game_score"],
@@ -1900,7 +2219,7 @@ def main():
     clash_line = ""
     if game_pick:
         country = country_display(game_pick["country"]) or "Неизвестно"
-        ms = int(round(game_pick["median_ms"] or 0.0))
+        ms = int(round(game_pick.get("http_ms") or game_pick["median_ms"] or 0.0))
         clash_name = "Clash Royale | " + country + " | " + str(ms) + "ms"
         clash_line = rename_node(game_pick, clash_name)
     write_file("clash_royale.txt", clash_line)

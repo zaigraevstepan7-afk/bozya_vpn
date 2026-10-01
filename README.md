@@ -58,6 +58,10 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 - Griffon `https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (HWID)
 - Nebula Curse `https://sub.nebulacurse.space/W83--xXdonEXYRBB/`
 - addsub `https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF` (без Германии)
+- Sevka, wepogp HWID-bypass, Tunpass
+- проверенные публичные списки: 0xRadikal verified, Au1rxx NL/DE/PL/FR/EE/SE
+
+В `top30` попадают только узлы, через которые Xray реально открывает HTTP. Мёртвые по TCP или по прокси выкидываются.
 
 GitHub Actions обновляет подписку каждые 4 часа.
 
