@@ -1587,7 +1587,268 @@ def write_file(name, content):
         f.write(content)
 
 
+FIXCORD_SUB_URL = "https://admin.fixcord.gg/happ/aARo_udWAVM_N0eT6ac7GmZas1Uhs3fi4IWsGEh4yfA/subscription"
+AKONIT_SUB_URL = "https://akonit.tech/sub/f9afd2d3-3858-403e-bbc9-9a720420c188"
+REPLACEMENT_URLS = [FIXCORD_SUB_URL, AKONIT_SUB_URL]
+
+
+def _strip_server_description(uri):
+    if "#" not in uri:
+        return uri
+    head, frag = uri.split("#", 1)
+    frag = frag.split("?serverDescription", 1)[0]
+    return head + "#" + frag
+
+
+def _country_base_name(text):
+    country = detect_country_from_name(text or "")
+    if country:
+        return country_display(country)
+    low = (text or "").lower()
+    if "авто" in low:
+        return country_display("EU")
+    return "Сервер"
+
+
+def _hysteria_doc_to_uri(doc, name):
+    outbound = None
+    for item in doc.get("outbounds") or []:
+        if isinstance(item, dict) and item.get("protocol") == "hysteria":
+            outbound = item
+            break
+    if not outbound:
+        return None
+    settings = outbound.get("settings") or {}
+    stream = outbound.get("streamSettings") or {}
+    hy = stream.get("hysteriaSettings") or {}
+    tls = stream.get("tlsSettings") or {}
+    auth = hy.get("auth") or ""
+    host = settings.get("address") or ""
+    port = settings.get("port") or 443
+    if not auth or not host:
+        return None
+    params = []
+    sni = tls.get("serverName") or host
+    if sni:
+        params.append(("sni", sni))
+    alpn = tls.get("alpn") or []
+    if isinstance(alpn, list) and alpn:
+        params.append(("alpn", ",".join(alpn)))
+    masks = stream.get("udpmasks") or []
+    if masks and isinstance(masks[0], dict) and masks[0].get("type"):
+        params.append(("obfs", masks[0].get("type")))
+        password = (masks[0].get("settings") or {}).get("password")
+        if password:
+            params.append(("obfs-password", password))
+    query = "&".join(quote(str(k), safe="") + "=" + quote(str(v), safe="") for k, v in params)
+    return "hysteria2://" + quote(str(auth), safe="") + "@" + host + ":" + str(port) + "?" + query + "#" + quote(name, safe="")
+
+
+def _fetch_happ_subscription(url):
+    headers = {
+        "User-Agent": "Happ/4.6.0",
+        "Accept": "text/plain,application/json,*/*",
+        "x-hwid": SUB_HWID,
+        "X-HWID": SUB_HWID,
+    }
+    resp = requests.get(url, timeout=45, headers=headers)
+    resp.raise_for_status()
+    resp.encoding = "utf-8"
+    text = resp.text
+    decoded = try_b64_line(text.strip())
+    return decoded or text
+
+
+def _load_replacement_entries():
+    entries = []
+    for url in REPLACEMENT_URLS:
+        text = _fetch_happ_subscription(url)
+        stripped = text.strip()
+        if stripped.startswith("["):
+            try:
+                docs = json.loads(stripped)
+            except Exception:
+                docs = []
+            for doc in docs:
+                if not isinstance(doc, dict):
+                    continue
+                entries.append({
+                    "kind": "json",
+                    "uri": None,
+                    "node": None,
+                    "label": doc.get("remarks") or "",
+                    "doc": doc,
+                })
+            print("INFO: replacement source", url, "entries so far", len(entries))
+            continue
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith(SCHEMES):
+                uri = _strip_server_description(line)
+                node = parse_node(uri)
+                if not node:
+                    continue
+                entries.append({
+                    "kind": "uri",
+                    "uri": uri,
+                    "node": node,
+                    "label": node.get("name") or "",
+                    "doc": None,
+                })
+            elif line.startswith("{"):
+                try:
+                    doc = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(doc, dict):
+                    entries.append({
+                        "kind": "json",
+                        "uri": None,
+                        "node": None,
+                        "label": doc.get("remarks") or "",
+                        "doc": doc,
+                    })
+        print("INFO: replacement source", url, "entries so far", len(entries))
+    counters = {}
+    for entry in entries:
+        base = _country_base_name(entry["label"])
+        counters[base] = counters.get(base, 0) + 1
+        entry["display_name"] = base + " " + str(counters[base])
+        if entry["kind"] == "uri":
+            entry["final_raw"] = rename_node(entry["node"], entry["display_name"])
+        else:
+            doc = json.loads(json.dumps(entry["doc"]))
+            doc["remarks"] = entry["display_name"]
+            entry["doc"] = doc
+            protocols = []
+            for outbound in doc.get("outbounds") or []:
+                if not isinstance(outbound, dict):
+                    continue
+                protocol = outbound.get("protocol")
+                if protocol and protocol not in ("freedom", "blackhole", "dns"):
+                    protocols.append(protocol)
+            if protocols and all(protocol == "hysteria" for protocol in protocols):
+                uri = _hysteria_doc_to_uri(doc, entry["display_name"])
+            else:
+                uri = custom_json_to_vless_uri(doc, entry["display_name"])
+                if not uri:
+                    uri = _hysteria_doc_to_uri(doc, entry["display_name"])
+            entry["final_raw"] = uri
+            if uri:
+                entry["node"] = parse_node(uri)
+    return entries
+
+
+def _clear_old_subscription_files():
+    keep = {
+        "top30.txt",
+        "top30.b64.txt",
+        "pattng-full.json",
+        "pattng-full.min.json",
+        "pattng-full.b64.txt",
+        "pattng-bs.json",
+        "pattng-bs.min.json",
+        "pattng-bs.b64.txt",
+        "bs.txt",
+        "bs.b64.txt",
+        "happ-bs.txt",
+        "happ-bs.b64.txt",
+        "clash_royale.txt",
+        "speed.txt",
+        "report.json",
+        "summary.yaml",
+        "whitelist.yaml",
+    }
+    if not os.path.isdir(OUT_DIR):
+        return
+    for name in os.listdir(OUT_DIR):
+        if name in keep:
+            continue
+        path = os.path.join(OUT_DIR, name)
+        if os.path.isfile(path):
+            os.remove(path)
+            print("INFO: removed old subscription file", name)
+
+
+def publish_replacement_subscriptions():
+    """Replace every published subscription with Fixcord + Akonit only."""
+    os.makedirs(OUT_DIR, exist_ok=True)
+    entries = _load_replacement_entries()
+    if not entries:
+        raise RuntimeError("replacement subscriptions returned no servers")
+    _clear_old_subscription_files()
+
+    uris = [entry["final_raw"] for entry in entries if entry.get("final_raw")]
+    text = "\n".join(uris)
+    write_file("top30.txt", text)
+    encoded = base64.b64encode((text + "\n").encode("utf-8")).decode("ascii")
+    write_file("top30.b64.txt", encoded)
+    write_file("bs.txt", text)
+    write_file("happ-bs.txt", text)
+    write_file("bs.b64.txt", encoded)
+    write_file("happ-bs.b64.txt", encoded)
+
+    pattng = []
+    for entry in entries:
+        if entry["kind"] == "json":
+            pattng.append(entry["doc"])
+            continue
+        converted = share_uri_to_pattng_json(entry["final_raw"], entry["display_name"])
+        if converted:
+            pattng.append(converted)
+        else:
+            print("WARN: skip PattNG convert", entry["display_name"])
+    with open(os.path.join(OUT_DIR, "pattng-full.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    with open(os.path.join(OUT_DIR, "pattng-bs.json"), "w", encoding="utf-8") as f:
+        json.dump(pattng, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    pattng_min = json.dumps(pattng, ensure_ascii=False, separators=(",", ":"))
+    write_file("pattng-full.min.json", pattng_min)
+    write_file("pattng-bs.min.json", pattng_min)
+    pattng_b64 = base64.b64encode(pattng_min.encode("utf-8")).decode("ascii")
+    write_file("pattng-full.b64.txt", pattng_b64)
+    write_file("pattng-bs.b64.txt", pattng_b64)
+
+    first = uris[0] if uris else ""
+    write_file("clash_royale.txt", first)
+    write_file("speed.txt", first)
+    clash_doc = {
+        "proxies": [],
+        "proxy-groups": [{"name": "Серверы", "type": "select", "proxies": []}],
+    }
+    with open(os.path.join(OUT_DIR, "whitelist.yaml"), "w", encoding="utf-8") as f:
+        yaml.safe_dump(clash_doc, f, allow_unicode=True, sort_keys=False)
+
+    report = []
+    for entry in entries:
+        node = entry.get("node") or {}
+        report.append({
+            "display_name": entry["display_name"],
+            "original_name": entry["label"],
+            "scheme": node.get("scheme") or ("hysteria2" if entry["kind"] == "json" else ""),
+            "host": node.get("host"),
+            "port": node.get("port"),
+        })
+    with open(os.path.join(OUT_DIR, "report.json"), "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    summary = {
+        "selected": len(entries),
+        "sources": list(REPLACEMENT_URLS),
+        "names": [entry["display_name"] for entry in entries],
+    }
+    with open(os.path.join(OUT_DIR, "summary.yaml"), "w", encoding="utf-8") as f:
+        yaml.safe_dump(summary, f, allow_unicode=True, sort_keys=False)
+    print("INFO: published servers", len(entries))
+    for entry in entries:
+        print("INFO: name", entry["display_name"])
+
+
 def main():
+    publish_replacement_subscriptions()
+    return
     token = os.environ.get("IPINFO_TOKEN", "")
     os.makedirs(OUT_DIR, exist_ok=True)
     pinned = load_pinned_awg()
