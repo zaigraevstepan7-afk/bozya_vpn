@@ -47,17 +47,12 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 
 https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/pattng-bs.json
 
-В начале подписки всегда:
-- 3 Cloudflare AWG (`Белый список | 🇩🇪/🇫🇮/🇵🇱`) — даже если TCP не отвечает
-- живые закреплённые: `🇨🇭 Швейцария`, `🇫🇮 Лютый обход | VIP LTE Финляндия`, `🇫🇷 Франция` (мёртвые снимаются)
-- `🇪🇺 Автовыбор` (leastPing по живым DE/NL/TH из Nebula Curse)
-- минимум 5 БС из Nebula Curse не из России (`Белый список | LTE-N · страна`)
-- все сервера addsub.site **кроме Германии** (автовыбор без DE + NL/PL/EE)
+Во всех подписках только серверы Fixcord и Akonit. Старые узлы удалены.
+Имена по стране с номером: `🇳🇱 Нидерланды 1`, `🇳🇱 Нидерланды 2`.
 
-Источники автопарсера:
-- Griffon `https://cdn.griffon-guard.com/sub/HaJY2J3e4hUzVaCc` (HWID)
-- Nebula Curse `https://sub.nebulacurse.space/W83--xXdonEXYRBB/`
-- addsub `https://addsub.site/api/sub/ZkHKDZtBFh_D9rNF` (без Германии)
+Источники:
+- Fixcord (ссылка Happ crypt5)
+- Akonit `https://akonit.tech/sub/f9afd2d3-3858-403e-bbc9-9a720420c188`
 
 GitHub Actions обновляет подписку каждые 4 часа.
 
