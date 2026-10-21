@@ -1736,6 +1736,19 @@ def _load_replacement_entries():
             entry["final_raw"] = uri
             if uri:
                 entry["node"] = parse_node(uri)
+
+    def sort_key(entry):
+        rest = entry["display_name"].split(" ", 1)[-1]
+        label, sep, num = rest.rpartition(" ")
+        if not sep:
+            return (rest.casefold(), 0)
+        try:
+            order = int(num)
+        except ValueError:
+            return (rest.casefold(), 0)
+        return (label.casefold(), order)
+
+    entries.sort(key=sort_key)
     return entries
 
 
