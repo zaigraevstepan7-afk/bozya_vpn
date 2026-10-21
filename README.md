@@ -54,6 +54,10 @@ https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/patt
 - Fixcord (ссылка Happ crypt5)
 - Akonit `https://akonit.tech/sub/f9afd2d3-3858-403e-bbc9-9a720420c188`
 
+Отдельная подписка **new** — 7 живых серверов из других источников, список выше не меняет:
+
+https://raw.githubusercontent.com/zaigraevstepan7-afk/bozya_vpn/main/output/new.txt
+
 GitHub Actions обновляет подписку каждые 4 часа.
 
 Happ/Xray не умеют AmneziaWG 2.0. PattNG получает маскировку через Finalmask.
