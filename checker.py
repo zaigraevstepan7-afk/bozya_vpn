@@ -1771,6 +1771,10 @@ def _clear_old_subscription_files():
         "report.json",
         "summary.yaml",
         "whitelist.yaml",
+        "new.txt",
+        "new.b64.txt",
+        "new.json",
+        "new.min.json",
     }
     if not os.path.isdir(OUT_DIR):
         return
