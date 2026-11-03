@@ -466,11 +466,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "172.64.80.1",
-              "port": 8443,
+              "address": "172.64.229.21",
+              "port": 443,
               "users": [
                 {
-                  "id": "60441548-b68e-43b2-8191-e3b884be4b3c",
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
                   "alterId": 0,
                   "security": "auto"
                 }
@@ -481,14 +481,14 @@
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/lMnsZUN4/",
+            "path": "/ws?ed=2048",
             "headers": {
-              "Host": "v2ray1.dozapp.xyz"
+              "Host": "vmess.lbw666.dpdns.org"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "v2ray1.dozapp.xyz",
+            "serverName": "vmess.lbw666.dpdns.org",
             "allowInsecure": false
           }
         }
@@ -522,17 +522,16 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vmess",
+        "protocol": "vless",
         "settings": {
           "vnext": [
             {
-              "address": "chatgpt.com",
-              "port": 8443,
+              "address": "172.66.133.28",
+              "port": 443,
               "users": [
                 {
-                  "id": "60441548-b68e-43b2-8191-e3b884be4b3c",
-                  "alterId": 0,
-                  "security": "auto"
+                  "id": "26524cce-d514-4014-a426-365fb266a14d",
+                  "encryption": "none"
                 }
               ]
             }
@@ -541,14 +540,15 @@
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/lMnsZUN4/",
+            "path": "/danfeng?ed=2560",
             "headers": {
-              "Host": "v2ray1.dozapp.xyz"
+              "Host": "xy1ej.stream-node-us.danfeng.qzz.io"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "v2ray1.dozapp.xyz",
+            "serverName": "xy1ej.stream-node-us.danfeng.qzz.io",
+            "fingerprint": "firefox",
             "allowInsecure": false
           }
         }
@@ -649,11 +649,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "172.66.133.28",
+              "address": "903.rtgpu.com",
               "port": 443,
               "users": [
                 {
-                  "id": "26524cce-d514-4014-a426-365fb266a14d",
+                  "id": "c6438331-a79b-4471-fd5e-42c2eeac29fa",
                   "encryption": "none"
                 }
               ]
@@ -663,74 +663,15 @@
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/danfeng?ed=2560",
+            "path": "/nmd2",
             "headers": {
-              "Host": "xy1ej.stream-node-us.danfeng.qzz.io"
+              "Host": "903.rtgpu.com"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "xy1ej.stream-node-us.danfeng.qzz.io",
-            "fingerprint": "firefox",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vless",
-        "settings": {
-          "vnext": [
-            {
-              "address": "5c264184c99.fuhuovps.xyz",
-              "port": 443,
-              "users": [
-                {
-                  "id": "30e52776-55ac-3cb4-8d36-e2910f07e2c3",
-                  "encryption": "none"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "xhttp",
-          "xhttpSettings": {
-            "path": "f00757d3fec0e7aca102e554fb32f21e",
-            "host": "f0c5bfd6s394.fuhuovps.xyz",
-            "mode": ""
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "f0c5bfd6s394.fuhuovps.xyz",
-            "fingerprint": "ios",
+            "serverName": "903.rtgpu.com",
+            "fingerprint": "",
             "allowInsecure": false
           }
         }
@@ -747,66 +688,6 @@
   },
   {
     "remarks": "🇨🇦 Канада-4",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vmess",
-        "settings": {
-          "vnext": [
-            {
-              "address": "wwww.speedtest.org",
-              "port": 443,
-              "users": [
-                {
-                  "id": "80be2deb-3b27-4775-9bd1-7f2a2b9c261b",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/truth",
-            "headers": {
-              "Host": "www.windowsmsidownloads.com"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "www.windowsmsidownloads.com",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇨🇦 Канада-5",
     "log": {
       "loglevel": "warning"
     },
@@ -866,6 +747,121 @@
     }
   },
   {
+    "remarks": "🇸🇬 Сингапур",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "trojan",
+        "settings": {
+          "servers": [
+            {
+              "address": "103.3.26.26",
+              "port": 443,
+              "password": "8deb189a-3aed-4865-843b-b72dae954c46"
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/",
+            "headers": {
+              "Host": "api.85s.me"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "api.85s.me",
+            "fingerprint": "",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇨🇦 Канада-5",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "cf.090227.xyz",
+              "port": 443,
+              "users": [
+                {
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/ws?ed=2048",
+            "headers": {
+              "Host": "vmess.lbw666.dpdns.org"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "vmess.lbw666.dpdns.org",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
     "remarks": "🇨🇦 Канада-6",
     "log": {
       "loglevel": "warning"
@@ -888,11 +884,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "www.gptcloudai.com",
+              "address": "cf.877771.xyz",
               "port": 443,
               "users": [
                 {
-                  "id": "e70a5b70-f63c-4450-af8b-94990cdf80c0",
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
                   "alterId": 0,
                   "security": "auto"
                 }
@@ -903,14 +899,14 @@
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/truth",
+            "path": "/ws?ed=2048",
             "headers": {
-              "Host": "www.gptcloudai.com"
+              "Host": "vmess.lbw666.dpdns.org"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "www.gptcloudai.com",
+            "serverName": "vmess.lbw666.dpdns.org",
             "allowInsecure": false
           }
         }
@@ -926,7 +922,7 @@
     }
   },
   {
-    "remarks": "🇨🇦 Канада-7",
+    "remarks": "🇺🇸 США",
     "log": {
       "loglevel": "warning"
     },
@@ -944,93 +940,28 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vmess",
+        "protocol": "trojan",
         "settings": {
-          "vnext": [
+          "servers": [
             {
-              "address": "www.windowsmsidownloads.com",
+              "address": "179.255.103.84",
               "port": 443,
-              "users": [
-                {
-                  "id": "80be2deb-3b27-4775-9bd1-7f2a2b9c261b",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
+              "password": "8deb189a-3aed-4865-843b-b72dae954c46"
             }
           ]
         },
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/truth",
+            "path": "/",
             "headers": {
-              "Host": "www.windowsmsidownloads.com"
+              "Host": "api.85s.me"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "www.windowsmsidownloads.com",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇨🇦 Канада-8",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vmess",
-        "settings": {
-          "vnext": [
-            {
-              "address": "www.ubuntuupdates.com",
-              "port": 443,
-              "users": [
-                {
-                  "id": "83b09a64-1eaf-4c4d-89ed-866d4b6b8115",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/truth",
-            "headers": {
-              "Host": "www.ubuntuupdates.com"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "www.ubuntuupdates.com",
+            "serverName": "api.85s.me",
+            "fingerprint": "",
             "allowInsecure": false
           }
         }
@@ -1085,7 +1016,7 @@
           "security": "tls",
           "tlsSettings": {
             "serverName": "api.85s.me",
-            "fingerprint": "",
+            "fingerprint": "firefox",
             "allowInsecure": false
           }
         }
@@ -1119,34 +1050,29 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vmess",
+        "protocol": "trojan",
         "settings": {
-          "vnext": [
+          "servers": [
             {
-              "address": "47.88.79.34",
+              "address": "179.253.225.34",
               "port": 443,
-              "users": [
-                {
-                  "id": "9b31490d-190e-4ef1-af0a-7ccab3e7c3b5",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
+              "password": "8deb189a-3aed-4865-843b-b72dae954c46"
             }
           ]
         },
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/ws-vmess",
+            "path": "/",
             "headers": {
-              "Host": "rib9jxayoqjgn2kw.v.3dns.vip"
+              "Host": "api.85s.me"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "rib9jxayoqjgn2kw.v.3dns.vip",
-            "allowInsecure": false
+            "serverName": "api.85s.me",
+            "fingerprint": "",
+            "allowInsecure": true
           }
         }
       },
@@ -1179,37 +1105,29 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "trojan",
         "settings": {
-          "vnext": [
+          "servers": [
             {
-              "address": "64.178.113.224",
-              "port": 443,
-              "users": [
-                {
-                  "id": "26524cce-d514-4014-a426-365fb266a14d",
-                  "encryption": "none"
-                }
-              ]
+              "address": "64.186.224.154",
+              "port": 10962,
+              "password": "8deb189a-3aed-4865-843b-b72dae954c46"
             }
           ]
         },
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/danfeng?ed=2560",
+            "path": "/",
             "headers": {
-              "Host": "xy1ej.stream-node-us.danfeng.qzz.io"
+              "Host": "api.85s.me"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "xy1ej.stream-node-us.danfeng.qzz.io",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "alpn": [
-              "http/1.1\n"
-            ]
+            "serverName": "api.85s.me",
+            "fingerprint": "",
+            "allowInsecure": false
           }
         }
       },
@@ -1242,28 +1160,37 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vmess",
+        "protocol": "vless",
         "settings": {
           "vnext": [
             {
-              "address": "66.163.125.51",
-              "port": 1270,
+              "address": "64.23.153.167",
+              "port": 443,
               "users": [
                 {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
-                  "alterId": 0,
-                  "security": "auto"
+                  "id": "26524cce-d514-4014-a426-365fb266a14d",
+                  "encryption": "none"
                 }
               ]
             }
           ]
         },
         "streamSettings": {
-          "network": "tcp",
+          "network": "ws",
+          "wsSettings": {
+            "path": "/danfeng?ed=2560",
+            "headers": {
+              "Host": "xy1ej.stream-node-us.danfeng.qzz.io"
+            }
+          },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "xmfhlpy.com",
-            "allowInsecure": false
+            "serverName": "xy1ej.stream-node-us.danfeng.qzz.io",
+            "fingerprint": "firefox",
+            "allowInsecure": true,
+            "alpn": [
+              "http/1.1"
+            ]
           }
         }
       },
@@ -1278,7 +1205,7 @@
     }
   },
   {
-    "remarks": "🇺🇸 США-6",
+    "remarks": "🇳🇱 Нидерланды",
     "log": {
       "loglevel": "warning"
     },
@@ -1296,29 +1223,95 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "trojan",
+        "protocol": "vless",
         "settings": {
-          "servers": [
+          "vnext": [
             {
-              "address": "179.255.141.28",
+              "address": "84.32.177.19",
               "port": 443,
-              "password": "8deb189a-3aed-4865-843b-b72dae954c46"
+              "users": [
+                {
+                  "id": "f935f257-1878-4656-8149-4e7737e2ff7d",
+                  "encryption": "none",
+                  "flow": "xtls-rprx-vision"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "nl-modx-roy.nodexphere.net",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "mvftK1HPHzpwowTw8ElAwf-GEECYx38GCTq4ihhEmAY",
+            "shortId": "",
+            "spiderX": ""
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇬🇧 Великобритания-2",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {
+          "vnext": [
+            {
+              "address": "185.212.62.17",
+              "port": 443,
+              "users": [
+                {
+                  "id": "26524cce-d514-4014-a426-365fb266a14d",
+                  "encryption": "none"
+                }
+              ]
             }
           ]
         },
         "streamSettings": {
           "network": "ws",
           "wsSettings": {
-            "path": "/",
+            "path": "/danfeng?ed=2560",
             "headers": {
-              "Host": "api.85s.me"
+              "Host": "xy1ej.stream-node-us.danfeng.qzz.io"
             }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "api.85s.me",
-            "fingerprint": "",
-            "allowInsecure": false
+            "serverName": "xy1ej.stream-node-us.danfeng.qzz.io",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "alpn": [
+              "http/1.1\n"
+            ]
           }
         }
       },
