@@ -444,6 +444,66 @@
     }
   },
   {
+    "remarks": "🇨🇦 Канада",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "172.64.79.226",
+              "port": 443,
+              "users": [
+                {
+                  "id": "6c46c15d-9021-47e7-9ef8-321be5efefae",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/vmess",
+            "headers": {
+              "Host": "szx.jbddmjb.cloud"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "szx.jbddmjb.cloud",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
     "remarks": "🇺🇸 США",
     "log": {
       "loglevel": "warning"
@@ -462,32 +522,93 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "vmess",
         "settings": {
           "vnext": [
             {
-              "address": "172.86.86.21",
+              "address": "cf.877771.xyz",
               "port": 443,
               "users": [
                 {
-                  "id": "3c4aa500-e3ae-4778-837b-f02dfea8c85f",
-                  "encryption": "none"
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+                  "alterId": 0,
+                  "security": "auto"
                 }
               ]
             }
           ]
         },
         "streamSettings": {
-          "network": "xhttp",
-          "xhttpSettings": {
-            "path": "/static/js/chunk",
-            "host": "us2.qik-fin.uk",
-            "mode": "stream-one"
+          "network": "ws",
+          "wsSettings": {
+            "path": "/ws?ed=2048",
+            "headers": {
+              "Host": "vmess.lbw666.dpdns.org"
+            }
           },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "us2.qik-fin.uk",
-            "fingerprint": "firefox",
+            "serverName": "vmess.lbw666.dpdns.org",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇨🇦 Канада-2",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "vipccc.cc",
+              "port": 443,
+              "users": [
+                {
+                  "id": "5bead32f-a987-4f57-b1a8-6698778facda",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "wsSettings": {
+            "path": "/ray_proxy",
+            "headers": {
+              "Host": "vipccc.cc"
+            }
+          },
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "vipccc.cc",
             "allowInsecure": false
           }
         }
@@ -525,11 +646,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "23.150.152.65",
-              "port": 1270,
+              "address": "cf.090227.xyz",
+              "port": 443,
               "users": [
                 {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
                   "alterId": 0,
                   "security": "auto"
                 }
@@ -538,10 +659,16 @@
           ]
         },
         "streamSettings": {
-          "network": "tcp",
+          "network": "ws",
+          "wsSettings": {
+            "path": "/ws?ed=2048",
+            "headers": {
+              "Host": "vmess.lbw666.dpdns.org"
+            }
+          },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "xmfhlpy.com",
+            "serverName": "vmess.lbw666.dpdns.org",
             "allowInsecure": false
           }
         }
@@ -579,11 +706,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "172.111.36.126",
-              "port": 1270,
+              "address": "cf.0sm.com",
+              "port": 443,
               "users": [
                 {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
                   "alterId": 0,
                   "security": "auto"
                 }
@@ -592,10 +719,16 @@
           ]
         },
         "streamSettings": {
-          "network": "tcp",
+          "network": "ws",
+          "wsSettings": {
+            "path": "/ws?ed=2048",
+            "headers": {
+              "Host": "vmess.lbw666.dpdns.org"
+            }
+          },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "xmfhlpy.com",
+            "serverName": "vmess.lbw666.dpdns.org",
             "allowInsecure": false
           }
         }
@@ -633,11 +766,11 @@
         "settings": {
           "vnext": [
             {
-              "address": "172.111.36.147",
-              "port": 1270,
+              "address": "172.66.203.67",
+              "port": 443,
               "users": [
                 {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "id": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
                   "alterId": 0,
                   "security": "auto"
                 }
@@ -646,10 +779,16 @@
           ]
         },
         "streamSettings": {
-          "network": "tcp",
+          "network": "ws",
+          "wsSettings": {
+            "path": "/ws?ed=2048",
+            "headers": {
+              "Host": "vmess.lbw666.dpdns.org"
+            }
+          },
           "security": "tls",
           "tlsSettings": {
-            "serverName": "xmfhlpy.com",
+            "serverName": "vmess.lbw666.dpdns.org",
             "allowInsecure": false
           }
         }
@@ -666,222 +805,6 @@
   },
   {
     "remarks": "🇺🇸 США-5",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vmess",
-        "settings": {
-          "vnext": [
-            {
-              "address": "142.202.48.87",
-              "port": 1270,
-              "users": [
-                {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "xmfhlpy.com",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇨🇦 Канада",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vmess",
-        "settings": {
-          "vnext": [
-            {
-              "address": "158.51.121.246",
-              "port": 1270,
-              "users": [
-                {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "xmfhlpy.com",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США-6",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vmess",
-        "settings": {
-          "vnext": [
-            {
-              "address": "67.220.74.250",
-              "port": 1270,
-              "users": [
-                {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "xmfhlpy.com",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США-7",
-    "log": {
-      "loglevel": "warning"
-    },
-    "inbounds": [
-      {
-        "tag": "socks",
-        "port": 10808,
-        "listen": "127.0.0.1",
-        "protocol": "socks",
-        "settings": {
-          "udp": true
-        }
-      }
-    ],
-    "outbounds": [
-      {
-        "tag": "proxy",
-        "protocol": "vmess",
-        "settings": {
-          "vnext": [
-            {
-              "address": "162.251.62.42",
-              "port": 1270,
-              "users": [
-                {
-                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
-                  "alterId": 0,
-                  "security": "auto"
-                }
-              ]
-            }
-          ]
-        },
-        "streamSettings": {
-          "network": "tcp",
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "xmfhlpy.com",
-            "allowInsecure": false
-          }
-        }
-      },
-      {
-        "tag": "direct",
-        "protocol": "freedom"
-      }
-    ],
-    "routing": {
-      "domainStrategy": "AsIs",
-      "rules": []
-    }
-  },
-  {
-    "remarks": "🇺🇸 США-8",
     "log": {
       "loglevel": "warning"
     },
@@ -943,7 +866,7 @@
     }
   },
   {
-    "remarks": "🇨🇦 Канада-2",
+    "remarks": "🇨🇦 Канада-3",
     "log": {
       "loglevel": "warning"
     },
@@ -961,17 +884,17 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "vmess",
         "settings": {
           "vnext": [
             {
-              "address": "185.218.17.172",
-              "port": 443,
+              "address": "134.195.196.154",
+              "port": 1270,
               "users": [
                 {
-                  "id": "ed1d539a-8507-45de-8253-cbc272161473",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
+                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "alterId": 0,
+                  "security": "auto"
                 }
               ]
             }
@@ -979,14 +902,10 @@
         },
         "streamSettings": {
           "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "canwec.kramiliantha.sbs",
-            "fingerprint": "ios",
-            "allowInsecure": false,
-            "publicKey": "oTsYnjjxzyoBI2rJn0TjihgaOcNMPa9bNwHhp4RdDkg",
-            "shortId": "be7d0c9dda4dd4e6",
-            "spiderX": ""
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "xmfhlpy.com",
+            "allowInsecure": false
           }
         }
       },
@@ -1001,7 +920,7 @@
     }
   },
   {
-    "remarks": "🇳🇱 Нидерланды",
+    "remarks": "🇺🇸 США-6",
     "log": {
       "loglevel": "warning"
     },
@@ -1019,17 +938,17 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "vmess",
         "settings": {
           "vnext": [
             {
-              "address": "89.105.218.138",
-              "port": 443,
+              "address": "172.111.36.126",
+              "port": 1270,
               "users": [
                 {
-                  "id": "90157e25-cee1-4217-921e-91f300bc1a24",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
+                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "alterId": 0,
+                  "security": "auto"
                 }
               ]
             }
@@ -1037,14 +956,10 @@
         },
         "streamSettings": {
           "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "golos.mail.ru",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs",
-            "shortId": "428ef87fd47a3a32",
-            "spiderX": ""
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "xmfhlpy.com",
+            "allowInsecure": false
           }
         }
       },
@@ -1059,7 +974,7 @@
     }
   },
   {
-    "remarks": "🇳🇱 Нидерланды-2",
+    "remarks": "🇺🇸 США-7",
     "log": {
       "loglevel": "warning"
     },
@@ -1077,17 +992,17 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "vmess",
         "settings": {
           "vnext": [
             {
-              "address": "89.105.218.153",
-              "port": 443,
+              "address": "172.111.36.253",
+              "port": 1270,
               "users": [
                 {
-                  "id": "90157e25-cee1-4217-921e-91f300bc1a24",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
+                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "alterId": 0,
+                  "security": "auto"
                 }
               ]
             }
@@ -1095,14 +1010,118 @@
         },
         "streamSettings": {
           "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "golos.mail.ru",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs",
-            "shortId": "428ef87fd47a3a32",
-            "spiderX": ""
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "xmfhlpy.com",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇺🇸 США-8",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "142.202.48.87",
+              "port": 1270,
+              "users": [
+                {
+                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "xmfhlpy.com",
+            "allowInsecure": false
+          }
+        }
+      },
+      {
+        "tag": "direct",
+        "protocol": "freedom"
+      }
+    ],
+    "routing": {
+      "domainStrategy": "AsIs",
+      "rules": []
+    }
+  },
+  {
+    "remarks": "🇺🇸 США-9",
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 10808,
+        "listen": "127.0.0.1",
+        "protocol": "socks",
+        "settings": {
+          "udp": true
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vmess",
+        "settings": {
+          "vnext": [
+            {
+              "address": "162.251.62.35",
+              "port": 1270,
+              "users": [
+                {
+                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "alterId": 0,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "tcp",
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "xmfhlpy.com",
+            "allowInsecure": false
           }
         }
       },
@@ -1135,17 +1154,17 @@
     "outbounds": [
       {
         "tag": "proxy",
-        "protocol": "vless",
+        "protocol": "vmess",
         "settings": {
           "vnext": [
             {
-              "address": "5.104.74.22",
-              "port": 8443,
+              "address": "149.7.16.228",
+              "port": 1270,
               "users": [
                 {
-                  "id": "72dd8678-1ac5-4357-9f7e-97e367e2a835",
-                  "encryption": "none",
-                  "flow": "xtls-rprx-vision"
+                  "id": "5c040f1d-45db-43bd-8d46-e4950e433735",
+                  "alterId": 0,
+                  "security": "auto"
                 }
               ]
             }
@@ -1153,14 +1172,10 @@
         },
         "streamSettings": {
           "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-            "serverName": "uk-room06.filesnap.tech",
-            "fingerprint": "firefox",
-            "allowInsecure": false,
-            "publicKey": "D9IxnCLtXuDLR1yBNZwWdxxbNDfsZgN3C9IsqKgG8Ec",
-            "shortId": "17a35165f9d25923",
-            "spiderX": ""
+          "security": "tls",
+          "tlsSettings": {
+            "serverName": "xmfhlpy.com",
+            "allowInsecure": false
           }
         }
       },
@@ -1197,30 +1212,28 @@
         "settings": {
           "vnext": [
             {
-              "address": "34.39.80.57",
-              "port": 50818,
+              "address": "50.7.193.133",
+              "port": 443,
               "users": [
                 {
-                  "id": "408c814e-f70a-4d16-b3b3-8182bb70211d",
-                  "encryption": "none"
+                  "id": "95d0e214-eab0-4701-93ed-fea4f1b56062",
+                  "encryption": "none",
+                  "flow": "xtls-rprx-vision"
                 }
               ]
             }
           ]
         },
         "streamSettings": {
-          "network": "ws",
-          "wsSettings": {
-            "path": "/GunService",
-            "headers": {
-              "Host": "yingguo.rymaker.cn"
-            }
-          },
-          "security": "tls",
-          "tlsSettings": {
-            "serverName": "yingguo.rymaker.cn",
-            "fingerprint": "",
-            "allowInsecure": false
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+            "serverName": "prime.jarbook.net",
+            "fingerprint": "firefox",
+            "allowInsecure": false,
+            "publicKey": "oAX7soFKfN3xURgCD26trmjeF-e-eEjW3pBVXuuvW0k",
+            "shortId": "77a8c8c8",
+            "spiderX": ""
           }
         }
       },
@@ -1257,7 +1270,7 @@
         "settings": {
           "vnext": [
             {
-              "address": "79.137.99.183",
+              "address": "162.19.82.57",
               "port": 1270,
               "users": [
                 {
